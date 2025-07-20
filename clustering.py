@@ -5,7 +5,6 @@ Created on Mon Feb 19 00:07:12 2024
 @author: 99488
 """
 '''
-result with age corrected subjects from adni, then cross validation in subject level were obtained, combat all subjects
 '''
 
 import os
@@ -265,21 +264,20 @@ other_fc_habs = []
 other_dx_habs = []
 other_age_habs = []
 other_sex_habs = []
-other_sub_habs = []
+other_sub_sess_habs = []
 
 for i,sub in enumerate(other_habs_sub):
     other_fc_habs.extend(list(half_habs_fc_all[habs_sub_sess_all==sub]))
     other_dx_habs.extend(list(habs_dx_all[habs_sub_sess_all==sub]))
     other_age_habs.extend(list(habs_age_all[habs_sub_sess_all==sub]))
     other_sex_habs.extend(list(habs_sex_all[habs_sub_sess_all==sub]))
-    other_sub_habs.extend(list(habs_sub_sess_all[habs_sub_sess_all==sub]))
+    other_sub_sess_habs.extend(list(habs_sub_sess_all[habs_sub_sess_all==sub]))
 
 other_fc_habs = np.array(other_fc_habs)    
 other_dx_habs = np.array(other_dx_habs)    
 other_age_habs = np.array(other_age_habs)    
 other_sex_habs = np.array(other_sex_habs)    
-other_sub_habs = np.array(other_sub_habs)     
-
+other_sub_sess_habs = np.array(other_sub_sess_habs) 
 half_fc_ind = np.r_[half_fc_oas_sa_dem, half_fc_habs]
 age_ind = np.r_[sa_dem_age_oas, sa_age_habs]
 sex_ind = np.r_[sa_dem_sex_oas, sa_sex_habs]
@@ -724,6 +722,7 @@ sen, spe = sens_spec(indep_pred_all_mean, dx_cn_sa_pair)
 adni_perf = [acc, sen, spe, AUC]
 print('ensemble acc cn vs sa:{} sen:{} spe:{} auc:{}'.format(acc, sen, spe, AUC))
 
+
 # # #################association of PCD in ADNI
 other_sub_adni_uni, other_idx_adni_uni = np.unique(other_sub_adni, return_index=True)
 
@@ -994,6 +993,121 @@ mask_MCI = (other_dx_adni[other_idx_adni_unique]==3)
 other_adni_pred_label_mask = other_adni_pred_label>0
 other_adni_pred_label_avg = other_adni_pred_label_mask.mean(0)[other_idx_adni_unique]
 
+for i, key in enumerate(PCD_keys):
+    stat_keys_adni.append(key)
+    fea = df_adni[key]
+    fea_demlike_cn = fea[mask_cn&(other_adni_pred_label_avg>=0.5)]
+    fea_demlike_cn = fea_demlike_cn[np.isfinite(fea_demlike_cn)]
+    fea_salike_cn = fea[mask_cn&(other_adni_pred_label_avg<0.5)]
+    fea_salike_cn = fea_salike_cn[np.isfinite(fea_salike_cn)]
+    fea_unstable_cn = fea[mask_cn&(other_adni_pred_label_avg!=0)&(other_adni_pred_label_avg!=1)]
+    fea_unstable_cn = fea_unstable_cn[np.isfinite(fea_unstable_cn)]
+    if len(fea_demlike_cn)>5 and len(fea_salike_cn)>5 and (len(fea_salike_cn) + len(fea_demlike_cn))>20 and (len(set(fea_salike_cn))>1 or len(set(fea_demlike_cn)) > 1):
+        if key == 'A+' or key == 'T+':
+            [F_cn,p_cn,_,_]=chi2_contingency([[np.sum(fea_salike_cn==1), np.sum(fea_demlike_cn==1)],
+                                              [np.sum((fea_salike_cn==0)), np.sum((fea_salike_cn==0))]])
+            cohens_d = cohen_d(fea_salike_cn, fea_demlike_cn)
+            stat_all_adni_cn.append([F_cn, p_cn, cohens_d, len(fea_demlike_cn), len(fea_salike_cn)])
+            if key == 'GENDER' or key == 'PTRACCAT':
+                plt.figure(figsize=(5,10)) 
+                ax = plt.gca()
+                count = np.sum(fea_salike_cn==1)
+                ax.bar(0, count, color = red, width = 1, fill=False, edgecolor= red, linewidth=5, hatch = '+')
+                count = np.sum(fea_demlike_cn==1)
+                ax.bar(1, count, color = blue, width = 1, fill=False, edgecolor= blue, linewidth=5, hatch = '+')
+                if key == 'PTRACCAT':
+                    count = np.sum(fea_salike_cn==0)
+                else:
+                    count = np.sum(fea_salike_cn==2)
+                ax.bar(2, count, color = red, width = 1, fill=False, edgecolor= red, linewidth=5, hatch = 'x')
+                if key == 'PTRACCAT':
+                    count = np.sum(fea_demlike_cn==0)
+                else:
+                    count = np.sum(fea_demlike_cn==2)
+                ax.bar(3, count, color = blue, width = 1, fill=False, edgecolor= blue, linewidth=5, hatch = 'x')
+                ax.set_yticks((0, 100, 200, 300, 400)) 
+                ax.set_xticks([1.5]) 
+                ax.set_xticklabels(['CN'])
+                ax.set_xlabel(key, **font2)
+                ax.spines['top'].set_color('none')  # 设置上‘脊梁’为红色
+                ax.spines['right'].set_color('none')  # 设置上‘脊梁’为无色
+            else:
+                plt.figure(figsize=(5,10)) 
+                ax = plt.gca()
+                count = np.sum(fea_demlike_cn<0.5)
+                ax.bar(0, count, color = red, width = 1, fill=False, edgecolor= red, linewidth=5, hatch = '+')
+                count = np.sum(fea_salike_cn<0.5)
+                ax.bar(1, count, color = blue, width = 1, fill=False, edgecolor= blue, linewidth=5, hatch = '+')
+                count = np.sum(fea_demlike_cn==1)
+                ax.bar(2, count, color = red, width = 1, fill=False, edgecolor= red, linewidth=5, hatch = 'x')
+                count = np.sum(fea_salike_cn==1)
+                ax.bar(3, count, color = blue, width = 1, fill=False, edgecolor= blue, linewidth=5, hatch = 'x')
+                ax.set_yticks((0, 50, 100, 150)) 
+                ax.set_xticks([1.5]) 
+                ax.set_xticklabels(['CN'])
+                ax.set_xlabel(key, **font2)
+                ax.spines['top'].set_color('none')  # 设置上‘脊梁’为红色
+                ax.spines['right'].set_color('none')  # 设置上‘脊梁’为无色
+        else:
+            F_cn,p_cn=kruskal(fea_salike_cn, fea_demlike_cn)
+            cohens_d = cohen_d(fea_salike_cn, fea_demlike_cn)
+            stat_all_adni_cn.append([F_cn, p_cn, cohens_d, len(fea_demlike_cn), len(fea_salike_cn)])
+            result1 = np.r_[fea_salike_cn, fea_demlike_cn]
+            dx_label = np.r_[['CN' for i in range(len(fea_salike_cn)+len(fea_demlike_cn))]]
+            cluster_label = np.r_[['SA-like' for i in range(len(fea_salike_cn))], ['DEM-like' for i in range(len(fea_demlike_cn))]]    
+            df = pd.DataFrame({'data': result1, 'DX': dx_label, 'Cluster': cluster_label})
+            plt.figure(figsize=(5,10)) 
+            ax = plt.gca()
+            my_pal = {'SA-like': blue, 'DEM-like': red}
+            # my_pal = {'SA-like': blue, 1: red, 2: 'limegreen', 3: RGB(0,.8,0.1)}
+            sns.stripplot(data=df, x="DX", y="data", hue="Cluster", palette = my_pal, ax = ax, dodge=True, legend = False, size = 5, jitter=0.2)
+            sns.violinplot(data=df, x="DX", y="data", hue="Cluster", palette = my_pal, fill=False, ax = ax, saturation=1, inner = 'box')
+            ax.scatter([-0.2,0.2],y= np.r_[fea_salike_cn.median(), fea_demlike_cn.median()],c="white",s = 100, edgecolor = 'grey', zorder=3, linewidth  = 2)
+            plt.xlim(-1, 1)
+            for collection in ax.collections:
+                if isinstance(collection, matplotlib.collections.PolyCollection):
+                    collection.set_edgecolor(collection.get_facecolor())
+                    collection.set_facecolor('none')
+            for h in ax.legend_.legendHandles:
+                if isinstance(h, matplotlib.patches.Rectangle):
+                    h.set_edgecolor(h.get_facecolor())
+                    h.set_facecolor('none')
+                    h.set_linewidth(2.5)
+            ax.get_legend().remove()
+            unit = (np.max(fea[np.isfinite(fea)]) - np.min(fea[np.isfinite(fea)]))//2
+
+            if abs(unit) < 1:
+                unit = round((np.max(fea[np.isfinite(fea)]) - np.min(fea[np.isfinite(fea)]))/2, 2)
+                ax.set_yticks(np.arange(np.min(fea[np.isfinite(fea)])-unit//2, np.max(fea[np.isfinite(fea)])+unit//2, unit))
+            else:
+                ax.set_yticks(np.arange(np.min(fea[np.isfinite(fea)])-unit//2, np.max(fea[np.isfinite(fea)])+unit//2, unit).astype(int))            
+            if key == 'AGE':
+                ax.set_yticks(np.arange(20, 110, 30))
+                plt.ylim(20, 110)
+            ax.set_ylabel(key)
+            ax.spines['top'].set_color('none')  # 设置上‘脊梁’为红色
+            ax.spines['right'].set_color('none')  # 设置上‘脊梁’为无色
+        # plt.savefig(r'F:\PHD\learning\project\super_age\more_sub\SA_defined_ricado\cluster\stats_compare\0.5\{}_adni_f.svg'.format(key), bbox_inches = 'tight')
+
+    else:
+        stat_all_adni_cn.append([np.nan, np.nan, np.nan, len(fea_demlike_cn), len(fea_salike_cn)])
+
+stat_all_adni_cn = np.array(stat_all_adni_cn)
+stat_all_adni_cn[np.r_[[70,71], np.arange(5,11)],1]
+
+out = multipletests(stat_all_adni_cn[np.r_[[70,71], np.arange(5,11)],1], method="fdr_bh")[1]
+np.array(stat_keys_adni)[np.r_[[70,71], np.arange(5,11)]]
+# df_adni['sub'] =  other_sub_adni_unique
+# df_adni['sess'] =  other_sess_adni_unique
+# df_adni.to_csv(r'F:\PHD\learning\project\super_age\more_sub\SA_defined_ricado\cluster\stats_compare\0\adni_init_pcd.csv', index=False)
+# np.array(stat_keys_oas)[np.r_[np.arange(26,31), np.arange(35,40)]][6]
+
+stat_adni_nonan_fdrp = multipletests(stat_all_adni_cn[np.isfinite(stat_all_adni_cn[:,1]),1], method="fdr_bh")[1]
+stat_keys_adni_nonan_fdrp = np.array(stat_keys_adni)[np.isfinite(stat_all_adni_cn[:,1])]
+stat_adni_nonan = stat_all_adni_cn[np.isfinite(stat_all_adni_cn[:,1])]
+
+# sio.savemat(r'F:\PHD\learning\project\super_age\more_sub\SA_defined_ricado\cluster\stats_compare\0.5\stats_compare_ini_adni.mat', {'stat_keys_adni':stat_keys_adni,
+#                                                                                                                                                                                     'stat_all_adni_cn': stat_all_adni_cn})
 # #################association of PCD in OASIS
 oasis_sa_sub = pd.Series(oasis_sa_sub_sess_uniq).str.split('_', expand = True).iloc[:,0]
 oasis_sa_sub_unique, unique_id = np.unique(oasis_sa_sub, return_index=True)
@@ -1024,7 +1138,7 @@ oasis_demo_sub = oasis_demo['Subject']
 oasis_demo_sub2 = oasis_demo2['OASISID']
 oasis_demo_interest = []
 for sub in oasis_sa_sub_sess_unique:
-    sub = sub_sess[:8]
+    sub = sub[:8]
     if sum(oasis_demo_sub == sub) >= 1:
         oasis_demo_interest.append(oasis_demo[['INRACE', 'INEDUC', 'INSEX']][oasis_demo_sub == sub].values[0,:])
     else:
@@ -1233,7 +1347,9 @@ PCD_keys = ['INRACE', 'INEDUC', 'sex', 'age', 'apoe', 'DELSEV', 'HALLSEV', 'AGIT
 stat_all_oas_cn = []
 stat_keys_oas = []
 stat_test = []
+# mask_cn = (other_dx_oas_encode==2)&(other_age_oas>=75)
 mask_MCI = (other_dx_oas_encode[unique_id]==3)
+# mask_cn = ((other_dx_oas_encode[unique_id]==2)|(other_dx_oas_encode[unique_id]==3))
 mask_cn = (other_dx_oas_encode[unique_id]==2)
 
 other_oas_pred_label_mask = other_oas_pred_label>0
@@ -1244,6 +1360,9 @@ oasis_sa_sub_sess_uniq_ = pd.Series(oasis_sa_sub_sess_unique).str.split('_', exp
 
 # #################association of PCD in HABS sa
 half_fc_habs_aging_correct_uniq = []
+sub_ind_ = pd.Series(sub_ind).str.split('_', expand = True).iloc[:,0]
+
+other_sub_habs = pd.Series(other_sub_sess_habs).str.split('_', expand = True).iloc[:,0]
 habs_sub_uni, uni_idx = np.unique(other_sub_habs, return_index=True)
 age_habs_aging_correct_uniq = []
 sex_habs_aging_correct_uniq = []
@@ -1284,7 +1403,7 @@ pcd_all_habs['sub_sess'] = pcd_all_habs['SubjIDshort'].str.split('_', expand = T
 pcd_all_habs['Race'][pcd_all_habs['Race'] == 'W'] = 0
 pcd_all_habs['Race'][pcd_all_habs['Race'] != 'W'] = 1
 
-_, hpc_fc_idx, pcd_idx = np.intersect1d(habs_sub_uni, pcd_all_habs['sub_sess'], return_indices=True)
+_, hpc_fc_idx, pcd_idx = np.intersect1d(habs_sub_uni,  pd.Series(pcd_all_habs['sub_sess']).str.split('_', expand = True).iloc[:,0], return_indices=True)
 PCD_habs_interest = {}
 PCD_habs_interest['age']= other_age_habs[uni_idx][hpc_fc_idx]
 PCD_habs_interest['sex']= other_sex_habs[uni_idx][hpc_fc_idx]
@@ -1355,14 +1474,6 @@ df_all = {'age': np.r_[df_oas['age'], df_pcd_habs['age']],
           'race': np.r_[df_oas['INRACE'], df_pcd_habs['Race']], 
           'educ': np.r_[df_oas['INEDUC'], df_pcd_habs['YrsOfEd']], 
           'dx': np.r_[df_oas['dx'], [2 for i in range(len(df_pcd_habs['sex']))]],  
-          # 'moca_total': np.r_[df_pcd_hcp['moca_total'], [np.nan for i in range(len(df_oas['sex']))], [np.nan for i in range(len(df_pcd_habs['sex']))]],
-          # 'visuospatial_executive': np.r_[df_pcd_hcp['visuospatial_executive'], [np.nan for i in range(len(df_oas['sex']))], [np.nan for i in range(len(df_pcd_habs['sex']))]], 
-          # 'naming': np.r_[df_pcd_hcp['naming'], [np.nan for i in range(len(df_oas['sex']))], [np.nan for i in range(len(df_pcd_habs['sex']))]],
-          # 'abstraction': np.r_[df_pcd_hcp['abstraction'], [np.nan for i in range(len(df_oas['sex']))], [np.nan for i in range(len(df_pcd_habs['sex']))]],
-          # 'delayed_recall': np.r_[df_pcd_hcp['delayed_recall'], [np.nan for i in range(len(df_oas['sex']))], [np.nan for i in range(len(df_pcd_habs['sex']))]], 
-          # 'orientation': np.r_[df_pcd_hcp['orientation'], [np.nan for i in range(len(df_oas['sex']))], [np.nan for i in range(len(df_pcd_habs['sex']))]], 
-          # 'attention': np.r_[df_pcd_hcp['attention'], [np.nan for i in range(len(df_oas['sex']))], [np.nan for i in range(len(df_pcd_habs['sex']))]],
-          # 'language': np.r_[df_pcd_hcp['language'], [np.nan for i in range(len(df_oas['sex']))], [np.nan for i in range(len(df_pcd_habs['sex']))]],
           'tmt_a': np.r_[df_oas['TRAILA'], df_pcd_habs['TMT_A']], 
           'tmt_b': np.r_[df_oas['TRAILB'], df_pcd_habs['TMT_B']], 
           'apoe': np.r_[df_oas['apoe'].astype(str).str.count('4'), df_pcd_habs['APOE_haplotype']], 
@@ -1409,612 +1520,171 @@ df_all = {'age': np.r_[df_oas['age'], df_pcd_habs['age']],
           'REMDATES': np.r_[df_oas['REMDATES'], [np.nan for i in range(len(df_pcd_habs['sex']))]],
           'TRAVEL': np.r_[df_oas['TRAVEL'], [np.nan for i in range(len(df_pcd_habs['sex']))]]}
 
-#################################################
-#################################################
-####################brain pattern visualization
-scaler = StandardScaler()
-half_fc_ind_zscore = scaler.fit_transform(half_fc_ind)
-half_fc_adni_other_correct_zsocre = scaler.transform(half_fc_adni_other_correct)
-half_fc_oas_other_correct_uni_zscore = scaler.transform(half_fc_oas_other_correct_uni)
-half_fc_habs_aging_correct_uniq_zsocre = scaler.transform(half_fc_habs_aging_correct_uniq)
-half_fc_adni_correct_score = scaler.transform(half_fc_adni_correct)
 
-dem_fc_discovery = half_fc_ind[dx_ind == 1]
-dem_sub_discovery = sub_ind[dx_ind == 1]
-dem_age_discovery = age_ind[dx_ind == 1]
-dem_sex_discovery = sex_ind[dx_ind == 1]
+df_all = pd.DataFrame(df_all)
+stat_discovery_cn = []
+stat_keys_discovery = []
+stat_test = []
+mask_cn = (df_all['dx']==2)#&(df_all['age']>=75)
+PCD_all_keys = list(df_all.columns)
 
-sa_fc_discovery = half_fc_ind[dx_ind == 0]
-sa_sub_discovery = sub_ind[dx_ind == 0]
-sa_age_discovery = age_ind[dx_ind == 0]
-sa_sex_discovery = sex_ind[dx_ind == 0]
-###discovery pattern
-mask_cn_oas = (other_dx_oas_encode[unique_id]==2)
-mask_ad_oas = (other_dx_oas_encode[unique_id]==1)
-cn_fc_discovery = half_fc_ind[dx_ind == 2]
-dem_fc_discovery2 = half_fc_oas_other_correct_uni[unique_id][mask_ad_oas]
-dem_sub_discovery2 = oasis_sa_sub_sess_uniq[unique_id][mask_ad_oas]
-dem_age_discovery2 = other_age_oas[unique_id][mask_ad_oas]
-dem_sex_discovery2 = other_sex_oas[unique_id][mask_ad_oas]
+for i, key in enumerate(PCD_all_keys):
+    if key == 'sub':
+        continue
+    stat_keys_discovery.append(key)
+    fea = df_all[key]
+    fea_demlike_cn = fea[mask_cn&(df_all['cluster_label']>=.5)]
+    fea_demlike_cn = fea_demlike_cn[np.isfinite(fea_demlike_cn)]
+    fea_salike_cn = fea[mask_cn&(df_all['cluster_label']<.5)]
+    fea_salike_cn = fea_salike_cn[np.isfinite(fea_salike_cn)]
+    fea_unstable_cn = fea[mask_cn&(df_all['cluster_label']!=0)&(df_all['cluster_label']!=1)]
+    fea_unstable_cn = fea_unstable_cn[np.isfinite(fea_unstable_cn)]
 
-dem_fc_discovery = np.r_[dem_fc_discovery, dem_fc_discovery2]
-dem_age_discovery = np.r_[dem_age_discovery, dem_age_discovery2]
-dem_sex_discovery = np.r_[dem_sex_discovery, dem_sex_discovery2]
-dem_sub_discovery = np.r_[dem_sub_discovery, dem_sub_discovery2]
-
-# dem_fc_discovery = dem_fc_discovery2
-# dem_age_discovery = dem_age_discovery2
-# dem_sex_discovery = dem_sex_discovery2
-# dem_sub_discovery = dem_sub_discovery2
-###discovery pattern
-age_oas_other_correct_uni_salike_cn = (other_age_oas[unique_id][(other_oas_pred_label_avg<0.5)&mask_cn_oas])
-sex_oas_other_correct_uni_salike_cn = (other_sex_oas[unique_id][(other_oas_pred_label_avg<0.5)&mask_cn_oas])
-age_oas_other_correct_uni_demlike_cn = (other_age_oas[unique_id][(other_oas_pred_label_avg>0.5)&mask_cn_oas])
-sex_oas_other_correct_uni_demlike_cn = (other_sex_oas[unique_id][(other_oas_pred_label_avg>0.5)&mask_cn_oas])
-mask_cn_oas = (other_dx_oas_encode[unique_id]==2)
-half_fc_oas_other_correct_uni_salike_cn = (half_fc_oas_other_correct_uni[unique_id][(other_oas_pred_label_avg<0.5)&mask_cn_oas])
-half_fc_oas_other_correct_uni_demlike_cn = (half_fc_oas_other_correct_uni[unique_id][(other_oas_pred_label_avg>0.5)&mask_cn_oas])
-
-# habs_idx_bl = []
-# for i in range(len(habs_sub_uni)):
-#     if '1.0' in habs_sub_uni[i]:
-#         habs_idx_bl.append(i)
-# habs_idx_bl = np.array(habs_idx_bl)        
-     
-half_fc_habs_other_correct_uni_salike_cn = (half_fc_habs_aging_correct_uniq[(other_habs_pred_label_avg<0.5)])
-half_fc_habs_other_correct_uni_demlike_cn = (half_fc_habs_aging_correct_uniq[(other_habs_pred_label_avg>0.5)])
-age_habs_correct_uni_salike_cn = (age_habs_aging_correct_uniq[(other_habs_pred_label_avg<0.5)])
-sex_habs_correct_uni_salike_cn = (sex_habs_aging_correct_uniq[(other_habs_pred_label_avg<0.5)])
-age_habs_correct_uni_demlike_cn = (age_habs_aging_correct_uniq[(other_habs_pred_label_avg>0.5)])
-sex_habs_correct_uni_demlike_cn = (sex_habs_aging_correct_uniq[(other_habs_pred_label_avg>0.5)])
-
-half_fc_discovery_uni_all_cn = np.r_[half_fc_oas_other_correct_uni, half_fc_habs_aging_correct_uniq]
-half_fc_discovery_uni_salike_cn = np.r_[half_fc_oas_other_correct_uni_salike_cn, half_fc_habs_other_correct_uni_salike_cn]
-half_fc_discovery_uni_demlike_cn = np.r_[half_fc_oas_other_correct_uni_demlike_cn, half_fc_habs_other_correct_uni_demlike_cn]
-age_discovery_uni_salike_cn = np.r_[age_oas_other_correct_uni_salike_cn, age_habs_correct_uni_salike_cn]
-sex_discovery_uni_salike_cn = np.r_[sex_oas_other_correct_uni_salike_cn, sex_habs_correct_uni_salike_cn]
-age_discovery_uni_demlike_cn = np.r_[age_oas_other_correct_uni_demlike_cn, age_habs_correct_uni_demlike_cn]
-sex_discovery_uni_demlike_cn = np.r_[sex_oas_other_correct_uni_demlike_cn, sex_habs_correct_uni_demlike_cn]
-
-############################################
-################longitidual data preprare, using adni2.mat
-sub_adni_lmm = []
-sess_adni_lmm = []
-pcd_adni_lmm = []
-age_adni_lmm = []
-sex_adni_lmm = []
-cluster_label_adni_lmm = []
-dx_adni_lmm = []
-sess_used = adni_demo_sess.unique()
-sess_used = np.delete(sess_used, 33)
-i = 0
-for sub in other_sub_adni_unique:
-    print(i)
-
-    for sess in sess_used:
-        pcd_adni_lmm_one = []
-        sub_adni_lmm.append(str(sub))
-        cluster_label_adni_lmm.append(other_adni_pred_label_avg[i])
-        dx_adni_lmm.append(other_dx_adni[other_idx_adni_unique][i])
-        if 'bl' in sess:
-            sess_adni_lmm.append(0)
-        else:
-            sess_adni_lmm.append(int(sess.split('m')[-1].split(' ')[0]))
-        adni_demo_sess[adni_demo_sess == 'm0'] = 'bl'
-        if sum((adni_demo_sub == sub[:10])&(adni_demo_sess == sess.split(' ')[0])) == 1:
-            pcd_adni_lmm_one.extend(list(adni_demo[['PTEDUCAT', 'PTRACCAT', 'APOE4', 'FDG', 'PIB', 'AV45', 'FBB', 
-                                                  'CDRSB', 'RAVLT_immediate', 
-                                                  'RAVLT_learning', 'RAVLT_forgetting', 'RAVLT_perc_forgetting', 'LDELTOTAL', 'DIGITSCOR', 
-                                                  'TRABSCOR', 'FAQ', 'MOCA']][
-                (adni_demo_sub == sub[:10])&(adni_demo_sess == sess.split(' ')[0])].values[0,:]))
-            age = adni_demo['AGE'][(adni_demo_sub == sub[:10])&(adni_demo_sess == sess.split(' ')[0])].values[0]           
-            sex = adni_demo['PTGENDER'][(adni_demo_sub == sub[:10])&(adni_demo_sess == sess.split(' ')[0])].values[0]                      
-            if sess != 'bl':
-                age =  age + float(sess.split('m')[-1])/12
-        elif sum((adni_demo_sub == sub[:10])&(adni_demo_sess == sess.split(' ')[0])) > 1:
-            pcd = adni_demo[['PTEDUCAT', 'PTRACCAT', 'APOE4', 'FDG', 'PIB', 'AV45', 'FBB', 
-                                                  'CDRSB', 'RAVLT_immediate', 
-                                                  'RAVLT_learning', 'RAVLT_forgetting', 'RAVLT_perc_forgetting', 'LDELTOTAL', 'DIGITSCOR', 
-                                                  'TRABSCOR', 'FAQ', 'MOCA']][
-                (adni_demo_sub == sub[:10])&(adni_demo_sess == sess.split(' ')[0])].values
-            selected_id = np.isnan(pcd[:,3:].astype(float)).sum(-1)
-            pcd_adni_lmm_one.extend(list(pcd[np.argmin(selected_id)]))
-            age = adni_demo['AGE'][(adni_demo_sub == sub[:10])&(adni_demo_sess == sess.split(' ')[0])].values[0]                      
-            sex = adni_demo['PTGENDER'][(adni_demo_sub == sub[:10])&(adni_demo_sess == sess.split(' ')[0])].values[0]                      
-            if sess != 'bl':
-                age =  age + float(sess.split('m')[-1])/12            
-        else:
-            pcd_adni_lmm_one.extend(list([np.nan for i in range(len(['PTEDUCAT', 'PTRACCAT', 'APOE4', 'FDG', 'PIB', 'AV45', 'FBB', 
-                                                  'CDRSB', 'RAVLT_immediate', 
-                                                  'RAVLT_learning', 'RAVLT_forgetting', 'RAVLT_perc_forgetting', 'LDELTOTAL', 'DIGITSCOR', 
-                                                  'TRABSCOR', 'FAQ', 'MOCA']))]))
-            age = np.nan                   
-            sex = np.nan            
-        adni_cdr_sess[adni_cdr_sess == 'sc'] = 'bl'
-        age_adni_lmm.append(age)
-        sex_adni_lmm.append(sex)        
-        if sum((adni_cdr_sub == sub[:10])&(adni_cdr_sess == sess.split(' ')[0])) == 1:
-            pcd_adni_lmm_one.extend(list(adni_cdr[['CDMEMORY', 'CDORIENT', 'CDJUDGE', 'CDCOMMUN', 'CDHOME', 'CDCARE', 'CDGLOBAL']][
-                (adni_cdr_sub == sub[:10])&(adni_cdr_sess == sess.split(' ')[0])].values[0,:]))
-        elif sum((adni_cdr_sub == sub[:10])&(adni_cdr_sess == sess.split(' ')[0])) > 1:
-            pcd = adni_cdr[['CDMEMORY', 'CDORIENT', 'CDJUDGE', 'CDCOMMUN', 'CDHOME', 'CDCARE', 'CDGLOBAL']][
-                (adni_cdr_sub == sub[:10])&(adni_cdr_sess == sess.split(' ')[0])].values
-            selected_id = np.isnan(pcd.astype(float)).sum(-1)
-            pcd_adni_lmm_one.extend(list(pcd[np.argmin(selected_id)]))
-        else:
-            pcd_adni_lmm_one.extend(list([np.nan for i in range(len(['CDMEMORY', 'CDORIENT', 'CDJUDGE', 'CDCOMMUN', 'CDHOME', 'CDCARE', 'CDGLOBAL']))]))
-
-        if sum((adni_faq_sub == sub[:10])&(adni_faq_sess == sess.split(' ')[0])) == 1:
-            pcd = adni_faq[['FAQFINAN', 'FAQFORM', 'FAQSHOP', 'FAQGAME', 'FAQBEVG', 'FAQMEAL',
-                                                'FAQEVENT', 'FAQTV', 'FAQREM', 'FAQTRAVL']][
-                (adni_faq_sub == sub[:10])&(adni_faq_sess == sess.split(' ')[0])].values[0,:]
-            pcd[(pcd==1)|(pcd==2)|(pcd==3)] = 1
-            pcd[(pcd==4)] = 2
-            pcd[(pcd==5)] = 3
-            pcd_adni_lmm_one.extend(list(pcd))
-        elif sum((adni_faq_sub == sub[:10])&(adni_faq_sess == sess.split(' ')[0])) > 1:
-            pcd = adni_faq[['FAQFINAN', 'FAQFORM', 'FAQSHOP', 'FAQGAME', 'FAQBEVG', 'FAQMEAL',
-                                                'FAQEVENT', 'FAQTV', 'FAQREM', 'FAQTRAVL']][
-                (adni_faq_sub == sub[:10])&(adni_faq_sess == sess.split(' ')[0])].values
-            pcd[(pcd==1)|(pcd==2)|(pcd==3)] = 1
-            pcd[(pcd==4)] = 2
-            pcd[(pcd==5)] = 3
-            selected_id = np.isnan(pcd.astype(float)).sum(-1)
-            pcd_adni_lmm_one.extend(list(pcd[np.argmin(selected_id)]))
-        else:
-            pcd_adni_lmm_one.extend(list([np.nan for i in range(len(['FAQFINAN', 'FAQFORM', 'FAQSHOP', 'FAQGAME', 'FAQBEVG', 'FAQMEAL',
-                                                'FAQEVENT', 'FAQTV', 'FAQREM', 'FAQTRAVL']))]))
-        if sum((adni_neuroBIO_sub == int(sub[6:10]))&(adni_neuroBIO_sess == sess.split(' ')[0])) == 1:
-            pcd_adni_lmm_one.extend(list(adni_neuroBIO[['ABETA42', 'TAU', 'PTAU']][
-                (adni_neuroBIO_sub == int(sub[6:10]))&(adni_neuroBIO_sess == sess.split(' ')[0])].values[0,:]))
-        elif sum((adni_neuroBIO_sub == int(sub[6:10]))&(adni_neuroBIO_sess == sess.split(' ')[0])) > 1:
-            pcd = adni_neuroBIO[['ABETA42', 'TAU', 'PTAU']][
-                (adni_neuroBIO_sub == int(sub[6:10]))&(adni_neuroBIO_sess == sess.split(' ')[0])].values
-            selected_id = np.isnan(pcd.astype(float)).sum(-1)
-            pcd_adni_lmm_one.extend(list(pcd[np.argmin(selected_id)]))
-        else:
-            pcd_adni_lmm_one.extend(list([np.nan for i in range(len(['ABETA42', 'TAU', 'PTAU']))]))
-        if sum((adni_moca_sub == sub[:10])&(adni_moca_sess == sess.split(' ')[0])) == 1:
-            moca_tem = adni_moca[['TRAILS', 'CUBE', 'CLOCKCON', 'CLOCKNO', 'CLOCKHAN', 'LION', 'RHINO', 'CAMEL',
-                                                  'IMMT1W1', 'IMMT1W2', 'IMMT1W3', 'IMMT1W4', 'IMMT1W5', 'IMMT2W1', 'IMMT2W2', 'IMMT2W3', 
-                                                  'IMMT2W4', 'IMMT2W5', 'DIGFOR', 'DIGBACK', 'LETTERS', 'SERIAL1', 'SERIAL2', 'SERIAL3', 'SERIAL4', 
-                                                  'SERIAL5', 'REPEAT1', 'REPEAT2', 'FFLUENCY', 'ABSTRAN', 'ABSMEAS', 'DELW1', 'DELW2', 'DELW3', 
-                                                  'DELW4', 'DELW5', 'DATE', 'MONTH', 'YEAR', 'DAY', 'PLACE', 'CITY']][
-                (adni_moca_sub == sub[:10])&(adni_moca_sess == sess.split(' ')[0])].values[0,:]
-            adni_moca_subtract = moca_tem[21:26].sum(-1)
-            if (adni_moca_subtract>=2) & (adni_moca_subtract<=3):
-                adni_moca_subtract = 2
-            elif adni_moca_subtract>=4:
-                adni_moca_subtract = 3
-            if moca_tem[28] < 11:
-                adni_moca_frq = 0
+    if len(fea_demlike_cn)>5 and len(fea_salike_cn)>5 and (len(fea_salike_cn) + len(fea_demlike_cn))>20 and (len(set(fea_salike_cn)) >1 or len(set(fea_demlike_cn)) > 1):
+        F_cn,p_cn=kruskal(fea_salike_cn, fea_demlike_cn)
+        if key == 'sex' or key == 'race':
+            [F_cn,p_cn,_,_]=chi2_contingency([[np.sum(fea_salike_cn==1), np.sum(fea_demlike_cn==1)],
+                                        [np.sum((fea_salike_cn==2)|(fea_salike_cn==0)), np.sum((fea_demlike_cn==2)|(fea_demlike_cn==0))]])
+        cohens_d = cohen_d(fea_salike_cn, fea_demlike_cn)
+        stat_discovery_cn.append([F_cn, p_cn, cohens_d, len(fea_demlike_cn), len(fea_salike_cn)])
+        if key == 'sex' or key == 'race':
+            plt.figure(figsize=(5,10)) 
+            ax = plt.gca()
+            count = np.sum(fea_salike_cn==1)
+            ax.bar(0, count, color = red, width = 1, fill=False, edgecolor= red, linewidth=5, hatch = '+')
+            count = np.sum(fea_demlike_cn==1)
+            ax.bar(1, count, color = blue, width = 1, fill=False, edgecolor= blue, linewidth=5, hatch = '+')
+            if key == 'race':
+                count = np.sum(fea_salike_cn==0)
             else:
-                adni_moca_frq = 1
-
-            pcd_adni_lmm_one.extend(list([moca_tem[:5].sum(), moca_tem[5:8].sum(-1), moca_tem[29:31].sum(-1), 
-                                      moca_tem[31:36].sum(-1)/3, moca_tem[36:].sum(-1), moca_tem[18:20].sum(-1) + moca_tem[20] + adni_moca_subtract, 
-                                      moca_tem[26:28].sum(-1) + adni_moca_frq]))
+                count = np.sum(fea_salike_cn==2)
+            ax.bar(2, count, color = red, width = 1, fill=False, edgecolor= red, linewidth=5, hatch = 'x')
+            if key == 'race':
+                count = np.sum(fea_demlike_cn==0)
+            else:
+                count = np.sum(fea_demlike_cn==2)
+            ax.bar(3, count, color = blue, width = 1, fill=False, edgecolor= blue, linewidth=5, hatch = 'x')
+            ax.set_yticks((0, 200, 400, 600, 800)) 
+            ax.set_xticks([1.5]) 
+            ax.set_xticklabels(['CN'])
+            ax.set_xlabel(key, **font2)
+            ax.spines['top'].set_color('none')  # 设置上‘脊梁’为红色
+            ax.spines['right'].set_color('none')  # 设置上‘脊梁’为无色
         else:
-            pcd_adni_lmm_one.extend(list([np.nan for i in range(7)]))
-        if sum((adni_nps_sub == sub[:10])&(adni_nps_sess == sess.split(' ')[0])) == 1:
-            pcd = adni_nps[['NPIASEV', 'NPIBSEV', 'NPICSEV', 'NPIDSEV', 'NPIESEV', 'NPIFSEV', 'NPIGSEV', 
-                                                'NPIHSEV', 'NPIISEV', 'NPIJSEV', 'NPIKSEV', 'NPILSEV','NPISCORE']][
-                (adni_nps_sub == sub[:10])&(adni_nps_sess == sess.split(' ')[0])].values[0,:]
-            pcd[pcd == -4] = 0
-            if np.isfinite(pcd[-1]):
-                pcd[np.isnan(pcd)] = 0
-            pcd_adni_lmm_one.extend(list(pcd))
-        elif sum((adni_nps_sub == sub[:10])&(adni_nps_sess == sess.split(' ')[0])) > 1:
-            pcd = adni_nps[['NPIASEV', 'NPIBSEV', 'NPICSEV', 'NPIDSEV', 'NPIESEV', 'NPIFSEV', 'NPIGSEV', 
-                                                'NPIHSEV', 'NPIISEV', 'NPIJSEV', 'NPIKSEV', 'NPILSEV','NPISCORE']][
-                (adni_nps_sub == sub[:10])&(adni_nps_sess == sess.split(' ')[0])].values
-            pcd[pcd == -4] = 0
-            for k in range(pcd.shape[0]):
-                if np.isfinite(pcd[k,-1]):
-                    pcd[k, np.isnan(pcd[k,:])] = 0
-            selected_id = np.isnan(pcd.astype(float)).sum(-1)
-            pcd_adni_lmm_one.extend(list(pcd[np.argmin(selected_id)]))
-        else:
-            pcd_adni_lmm_one.extend(list([np.nan for i in range(len(['NPIASEV', 'NPIBSEV', 'NPICSEV', 'NPIDSEV', 'NPIESEV', 'NPIFSEV', 'NPIGSEV', 
-                                                'NPIHSEV', 'NPIISEV', 'NPIJSEV', 'NPIKSEV', 'NPILSEV','NPISCORE']))]))
-        adni_cdr_sess[adni_cdr_sess == 'sc'] = 'bl'
-        if sum((adni_neu_sub == sub[:10])&(adni_neu_sess == sess.split(' ')[0])) == 1:
-            pcd = adni_neu[['LIMMTOTAL', 'DSPANFOR', 'DSPANFLTH', 'DSPANBAC', 'DSPANBLTH', 'CATANIMSC', 'CATANPERS', 
-                                                'CATVEGESC', 'CATVGPERS', 'TRAASCOR', 'TRABSCOR', 'DIGITSCOR','LDELTOTAL', 'BNTTOTAL']][
-                (adni_neu_sub == sub[:10])&(adni_neu_sess == sess.split(' ')[0])].values[0,:]
-            pcd[pcd==-4] = 0
-            pcd_adni_lmm_one.extend(list(pcd))
-        elif sum((adni_neu_sub == sub[:10])&(adni_neu_sess == sess.split(' ')[0])) > 1:
-            pcd = adni_neu[['LIMMTOTAL', 'DSPANFOR', 'DSPANFLTH', 'DSPANBAC', 'DSPANBLTH', 'CATANIMSC', 'CATANPERS', 
-                                                'CATVEGESC', 'CATVGPERS', 'TRAASCOR', 'TRABSCOR', 'DIGITSCOR','LDELTOTAL', 'BNTTOTAL']][
-                (adni_neu_sub == sub[:10])&(adni_neu_sess == sess.split(' ')[0])].values
-            pcd[pcd==-4] = 0
-            selected_id = np.isnan(pcd.astype(float)).sum(-1)
-            pcd_adni_lmm_one.extend(list(pcd[np.argmin(selected_id)]))
-        else:
-            pcd_adni_lmm_one.extend(list([np.nan for i in range(len(['LIMMTOTAL', 'DSPANFOR', 'DSPANFLTH', 'DSPANBAC', 'DSPANBLTH', 'CATANIMSC',
-                                                                  'CATANPERS', 'CATVEGESC', 'CATVGPERS', 'TRAASCOR', 'TRABSCOR', 'DIGITSCOR','LDELTOTAL',
-                                                                  'BNTTOTAL']))]))
-        pcd_adni_lmm.append(pcd_adni_lmm_one)
-    i = i + 1
+            result1 = np.r_[fea_salike_cn, fea_demlike_cn]
+            dx_label = np.r_[['CN' for i in range(len(fea_salike_cn)+len(fea_demlike_cn))]]
+            cluster_label = np.r_[['SA-like' for i in range(len(fea_salike_cn))], ['DEM-like' for i in range(len(fea_demlike_cn))]]    
+            df = pd.DataFrame({'data': result1, 'DX': dx_label, 'Cluster': cluster_label})
     
+            plt.figure(figsize=(5,10)) 
+            ax = plt.gca()
+            my_pal = {'SA-like': blue, 'DEM-like': red}
+            # my_pal = {'SA-like': blue, 1: red, 2: 'limegreen', 3: RGB(0,.8,0.1)}
+            sns.stripplot(data=df, x="DX", y="data", hue="Cluster", palette = my_pal, ax = ax, dodge=True, legend = False, size = 5, jitter=0.2)
+            sns.violinplot(data=df, x="DX", y="data", hue="Cluster", palette = my_pal, fill=False, ax = ax, saturation=1, inner = 'box')
+            ax.scatter([-0.2,0.2],y= np.r_[fea_salike_cn.median(), fea_demlike_cn.median()],c="white",s = 100, edgecolor = 'grey', zorder=3, linewidth  = 2)
+            plt.xlim(-1, 1)
+            for collection in ax.collections:
+                if isinstance(collection, matplotlib.collections.PolyCollection):
+                    collection.set_edgecolor(collection.get_facecolor())
+                    collection.set_facecolor('none')
+            for h in ax.legend_.legendHandles:
+                if isinstance(h, matplotlib.patches.Rectangle):
+                    h.set_edgecolor(h.get_facecolor())
+                    h.set_facecolor('none')
+                    h.set_linewidth(2.5)
+            ax.get_legend().remove()
+            unit = (np.max(fea[np.isfinite(fea)]) - np.min(fea[np.isfinite(fea)]))//2
+
+            if abs(unit) < 1:
+                unit = round((np.max(fea[np.isfinite(fea)]) - np.min(fea[np.isfinite(fea)]))/2, 2)
+                ax.set_yticks(np.arange(np.min(fea[np.isfinite(fea)])-unit, np.max(fea[np.isfinite(fea)])+unit, unit))
+            else:
+                ax.set_yticks(np.arange(np.min(fea[np.isfinite(fea)])-unit, np.max(fea[np.isfinite(fea)])+unit, unit).astype(int))    
+            if key == 'age':
+                ax.set_yticks(np.arange(20, 110, 30))
+                plt.ylim(20, 110)
     
-sub_adni_lmm = np.array(sub_adni_lmm)
-sess_adni_lmm = np.array(sess_adni_lmm)
-cluster_label_adni_lmm = np.array(cluster_label_adni_lmm)
-dx_adni_lmm = np.array(dx_adni_lmm)
-age_adni_lmm = np.array(age_adni_lmm)
-sex_adni_lmm = np.array(sex_adni_lmm)
+            ax.set_ylabel(key)
+            ax.spines['top'].set_color('none')  # 设置上‘脊梁’为红色
+            ax.spines['right'].set_color('none')  # 设置上‘脊梁’为无色
+        # plt.savefig(r'F:\PHD\learning\project\super_age\more_sub\SA_defined_ricado\cluster\stats_compare\0.5\{}_discovery_nodelete.svg'.format(key), bbox_inches = 'tight')
+    else:
+        stat_discovery_cn.append([np.nan, np.nan, np.nan, len(fea_demlike_cn), len(fea_salike_cn)])
 
-pcd_adni_lmm = np.array(pcd_adni_lmm)
-pcd_adni_lmm[pcd_adni_lmm[:,1]!='White',1] = 0
-pcd_adni_lmm[pcd_adni_lmm[:,1]=='White',1] = 1
-pcd_adni_lmm = pcd_adni_lmm.astype(float)
+stat_discovery_cn = np.array(stat_discovery_cn)
 
-sub_oas_lmm = []
-sess_oas_lmm = []
-pcd_oas_lmm = []
-cluster_label_oas_lmm = []
-dx_oas_lmm = []
-age_oas_lmm = []
-sex_oas_lmm = []
-oasis_sub = pd.Series(oasis_sa_sub_sess_unique).str.split('_', expand = True).iloc[:,0]
-oasis_sess = pd.Series(oasis_sa_sub_sess_unique).str.split('_', expand = True).iloc[:,-1]
+# out = multipletests(stat_discovery_cn[np.r_[[14,15], np.arange(38,47)],1], method="fdr_bh")[1]
+np.array(stat_keys_discovery)[np.r_[[14,15], np.arange(38,47)]]
+# out = multipletests(stat_discovery_cn[[0,1,3,4],1], method="fdr_bh")[1]
+# np.array(stat_keys_discovery)[[0,1,3,4]]
+out = multipletests(stat_discovery_cn[:,1], method="fdr_bh")[1]
+np.array(stat_keys_discovery)[47:]
+# np.array(stat_keys_oas)[np.r_[np.arange(26,31), np.arange(35,40)]][6]
+out = multipletests(stat_discovery_cn[np.isfinite(stat_discovery_cn[:,1]),1], method="fdr_bh")[1]
+np.array(stat_keys_discovery)[np.isfinite(stat_discovery_cn[:,1])][out<0.05]
+stat_keys_discovery_nonan = np.array(stat_keys_discovery)[np.isfinite(stat_discovery_cn[:,1])]
 
-j = 0
-for sub in oasis_sub:
-    print(j)
-    sess_used = list(set(oasis_sess))
-    for sess in sess_used:
-        pcd_oas_lmm_one = []
-        sub_oas_lmm.append(str(sub))
-        cluster_label_oas_lmm.append(other_oas_pred_label_avg[j])
-        dx_oas_lmm.append(other_dx_oas_encode[unique_id][j])
-        age = other_age_oas[unique_id][(oasis_sub == sub)][0]
-        age_sess = oasis_sess[(oasis_sub == sub)].iloc[0]
-        age = age + float(sess.split('M')[-1])/12 - float(age_sess.split('M')[-1])/12
-        age_oas_lmm.append(age)
-        sex_oas_lmm.append(other_sex_oas[unique_id][(oasis_sub == sub)][0])
-        if 'bl' in sess:
-            sess_oas_lmm.append(0)
+out = multipletests(stat_discovery_cn[np.r_[np.arange(8), np.arange(22,51)],1][np.isfinite(stat_discovery_cn[np.r_[np.arange(8), np.arange(22,51)],1])], method="fdr_bh")[1]
+stat_discovery_cn_fdr = copy.deepcopy(stat_discovery_cn)
+stat_discovery_cn_fdr[np.r_[np.arange(8), np.arange(22,51)],1][np.isfinite(stat_discovery_cn[np.r_[np.arange(8), np.arange(22,51)],1])] = out
+# sio.savemat(r'F:\PHD\learning\project\super_age\more_sub\SA_defined_ricado\cluster\stats_compare\0.5\stats_compare_discovery.mat', {'stat_keys_discovery':stat_keys_discovery,
+#                                                                                                                                                                                     'stat_discovery_cn': stat_discovery_cn})
+
+###################################demograph in discovery
+sub_ind_ = pd.Series(sub_ind).str.split('_', expand = True).iloc[:,0]
+sub_ind_uni, sub_idx = np.unique(sub_ind_, return_index=True)     
+
+oasis_demo_interest_classification = []
+for sub in sub_ind_uni:
+    if sum(oasis_demo_sub == sub) >= 1:
+        oasis_demo_interest_classification.append(oasis_demo[['INRACE', 'INEDUC']][oasis_demo_sub == sub].values[0,:])
+    else:
+        if sum(oasis_demo_sub2 == sub) >= 1:
+            oasis_demo_interest_classification.append(oasis_demo2[['INRACE', 'INEDUC']][oasis_demo_sub2 == sub].values[0,:])
         else:
-            sess_oas_lmm.append(int(sess.split('M')[-1].split(' ')[0]))
-        if sum((PCD_sub == sub) & (PCD_sess == sess))== 1:
-            pcd_oas_lmm_one.extend(list(PCD_data[:,np.r_[[1, 2, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25], np.arange(27,50)]][
-                (PCD_sub == sub) & (PCD_sess == sess)].squeeze()))
-        elif sum((PCD_sub == sub) & (PCD_sess == sess))> 1:
-            pcd = PCD_data[:,np.r_[[1, 2, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25], np.arange(27,50)]][
-                (PCD_sub == sub) & (PCD_sess == sess)].squeeze()
-            pcd_new = []
-            for i in range(pcd.shape[-1]):
-                info = pcd[:,i]
-                if np.isnan(info.astype(float)).sum() == len(info):
-                    pcd_new.append(np.nan)
-                else:
-                    pcd_new.append(info[~np.isnan(info.astype(float))][0].squeeze())
-            pcd_oas_lmm_one.extend(pcd_new)
-        else:
-            pcd_oas_lmm_one.extend([np.nan for i in range(len(['apoe', 'NPIQINF', 'DELSEV', 'HALLSEV', 'AGITSEV', 'DEPDSEV', 
-                                                  'ANXSEV', 'ELATSEV', 'APASEV', 'DISNSEV', 'IRRSEV', 'MOTSEV', 'NITESEV',
-                                                  'APPSEV', 'mmse', 'cdr', 'commun','homehobb', 'judgment', 'memory', 'orient', 'perscare', 'sumbox', 
-                                                  'DIGIF', 'DIGIB', 'ANIMALS', 'VEG', 'TRAILA', 'TRAILALI', 'TRAILB',
-                                                  'TRAILBLI', 'WAIS', 'LOGIMEM', 'MEMUNITS', 'MEMTIME', 'BOSTON']))])
-        if sum((oasis_faq_sub == sub) & (oasis_faq_sess == sess))> 0:
-            faq_ = oasis_faq[['BILLS', 'TAXES', 'SHOPPING', 'GAMES', 'STOVE', 'MEALPREP', 'EVENTS',
-                                                  'PAYATTN', 'REMDATES', 'TRAVEL']][
-                (oasis_faq_sub == sub) & (oasis_faq_sess == sess)].values[0,:]
-            faq_[(faq_==8)|(faq_==9)] = np.nan # recode the 8, 9
-
-            pcd_oas_lmm_one.extend(list(faq_))
-        else:
-            pcd_oas_lmm_one.extend(list([np.nan for i in range(len(['BILLS', 'TAXES', 'SHOPPING', 'GAMES', 'STOVE', 'MEALPREP', 'EVENTS',
-                                                  'PAYATTN', 'REMDATES', 'TRAVEL']))]))
-        if sum((oasis_pet_sub == sub) & (oasis_pet_sess == sess))> 0:
-            pcd_oas_lmm_one.extend(list(oasis_pet[['Centil_fBP_TOT_CORTMEAN_av45', 'Centil_fSUVR_TOT_CORTMEAN_av45', 
-            'Centil_fBP_rsf_TOT_CORTMEAN_av45', 'Centil_fSUVR_rsf_TOT_CORTMEAN_av45', 'Centil_fBP_TOT_CORTMEAN_pib', 'Centil_fSUVR_TOT_CORTMEAN_pib', 
-            'Centil_fBP_rsf_TOT_CORTMEAN_pib', 'Centil_fSUVR_rsf_TOT_CORTMEAN_pib']][
-                (oasis_pet_sub == sub) & (oasis_pet_sess == sess)].values[0,:]))
-        else:
-            pcd_oas_lmm_one.extend(list([np.nan for i in range(len(['Centil_fBP_TOT_CORTMEAN_av45', 'Centil_fSUVR_TOT_CORTMEAN_av45', 
-            'Centil_fBP_rsf_TOT_CORTMEAN_av45', 'Centil_fSUVR_rsf_TOT_CORTMEAN_av45', 'Centil_fBP_TOT_CORTMEAN_pib', 'Centil_fSUVR_TOT_CORTMEAN_pib', 
-            'Centil_fBP_rsf_TOT_CORTMEAN_pib', 'Centil_fSUVR_rsf_TOT_CORTMEAN_pib']))]))
-        pcd_oas_lmm.append(pcd_oas_lmm_one)
-    j = j + 1
-
-sub_oas_lmm = np.array(sub_oas_lmm)
-sess_oas_lmm = np.array(sess_oas_lmm)
-cluster_label_oas_lmm = np.array(cluster_label_oas_lmm)
-dx_oas_lmm = np.array(dx_oas_lmm)
-pcd_oas_lmm = np.array(pcd_oas_lmm).astype(float) 
-
-sub_habs_lmm = []
-sess_habs_lmm = []
-pcd_habs_lmm = []
-cluster_label_habs_lmm = []
-age_habs_lmm = []
-sex_habs_lmm = []
-dx_habs_lmm = []
-habs_sub = pd.Series(habs_sub_uni).str.split('_', expand = True).iloc[:,0]
-habs_sess = pd.Series(habs_sub_uni).str.split('_', expand = True).iloc[:,-1]
-
-habs_sub_all = pd.Series(pcd_all_habs['sub_sess']).str.split('_', expand = True).iloc[:,0]
-habs_sess_all = pd.Series(pcd_all_habs['sub_sess']).str.split('_', expand = True).iloc[:,-1]
-j = 0
-
-habs_sub_uni_, uni_id = np.unique(habs_sub, return_index=True)
-
-for sub in habs_sub_uni_:
-    print(j)
-    sess_used = np.unique(habs_sess)
-    for sess in sess_used:
-        pcd_habs_lmm_one = []
-        sub_habs_lmm.append(str(sub))
-        cluster_label_habs_lmm.append(other_habs_pred_label_avg[uni_id][j])
-        if np.sum((habs_sub_all == sub)&(habs_sess_all == sess)) == 0:
-            age = pcd_all_habs['NP_Age'][(habs_sub_all == sub)].values[0]
-            age = age + float(sess) - float(habs_sess_all[habs_sub_all == sub].values[0])
-            sex = pcd_all_habs['BiologicalSex'][(habs_sub_all == sub)].values[0]
-            dx = pcd_all_habs['HABS_DX'][(habs_sub_all == sub)].values[0]
-        else:
-            age = pcd_all_habs['NP_Age'][(habs_sub_all == sub)&(habs_sess_all == sess)].values[0]
-            sex = pcd_all_habs['BiologicalSex'][(habs_sub_all == sub)&(habs_sess_all == sess)].values[0]
-            # dx = pcd_all_habs['HABS_DX'][(habs_sub_all == sub)&(habs_sess_all == sess)].values[0]
-            dx = pcd_all_habs['HABS_DX'][(habs_sub_all == sub)].values[0] #ignore longitidinal dx change
-
-        age_habs_lmm.append(age)
-        if sex == 'F': 
-            sex_habs_lmm.append(2)
-        else:
-            sex_habs_lmm.append(1)
-
-        if '1.0' == sess:
-            sess_habs_lmm.append(0)
-        elif sess == '3.0':
-            sess_habs_lmm.append(24)
-        elif sess == '4.0':
-            sess_habs_lmm.append(36)
-        elif sess == '6.0':
-            sess_habs_lmm.append(60)
-        if sum((habs_sub_all == sub) & (habs_sess_all == sess))== 1:
-            pcd_habs_lmm_one.extend(list(pcd_all_habs[['YrsOfEd', 'APOE_haplotype', 'BNT_30', 'CAT_Animal_Total', 'CAT_Vegetable_Total', 'Digits_Forward', 
-                                                  'Digits_Backwards', 'FAS_Total', 'FCsrt_FNC', 'FCsrt_Free', 'LetterNum_Total', 'LogicMem_IL', 'LogicMem_DR',
-                                                  'SRT_dr', 'SRT_cltr', 'SRT_cr', 'SRT_ltr','SRT_lts', 'SRT_mc', 'SRT_str', 'SRT_tr', 'TMT_A', 'TMT_B', 
-                                                  'VFDT', 'CDR_Global', 'CDR_SB', 'CDR_Memory', 'MMSE_Total', 'MMSE_Orientation', 'MMSE_ImmRecall',
-                                                  'MMSE_AttnCalc', 'MMSE_DelRecall', 'MMSE_Language', 'MMSE_Pentagons', 'GDS_Total', 'Hachinski', 'Race', 
-                                                  'fdg_mean', 'ftp_mean', 'PIB_FS_DVR_FLR']][
-                (habs_sub_all == sub) & (habs_sess_all == sess)].squeeze()))
-        else:
-            pcd_habs_lmm_one.extend([np.nan for i in range(len(['YrsOfEd', 'APOE_haplotype', 'BNT_30', 'CAT_Animal_Total', 'CAT_Vegetable_Total', 'Digits_Forward', 
-                                                  'Digits_Backwards', 'FAS_Total', 'FCsrt_FNC', 'FCsrt_Free', 'LetterNum_Total', 'LogicMem_IL', 'LogicMem_DR',
-                                                  'SRT_dr', 'SRT_cltr', 'SRT_cr', 'SRT_ltr','SRT_lts', 'SRT_mc', 'SRT_str', 'SRT_tr', 'TMT_A', 'TMT_B', 
-                                                  'VFDT', 'CDR_Global', 'CDR_SB', 'CDR_Memory', 'MMSE_Total', 'MMSE_Orientation', 'MMSE_ImmRecall',
-                                                  'MMSE_AttnCalc', 'MMSE_DelRecall', 'MMSE_Language', 'MMSE_Pentagons', 'GDS_Total', 'Hachinski', 'Race',
-                                                  'fdg_mean', 'ftp_mean', 'PIB_FS_DVR_FLR']))])
-        pcd_habs_lmm.append(pcd_habs_lmm_one)
-        dx_habs_lmm.append(dx)
-    j = j + 1
-
-sub_habs_lmm = np.array(sub_habs_lmm)
-sess_habs_lmm = np.array(sess_habs_lmm)
-cluster_label_habs_lmm = np.array(cluster_label_habs_lmm)
-dx_habs_lmm = np.array(dx_habs_lmm)
-pcd_habs_lmm = np.array(pcd_habs_lmm).astype(float) 
-
-sio.savemat(r'F:\PHD\learning\project\super_age\more_sub\SA_defined_ricado\cluster\longi_symptoms\cluster_result_unique_lmm_corrected.mat', {'sub_oas': sub_oas_lmm, 'sess_oas': sess_oas_lmm,
-                                                                                                'cluster_label_oas': cluster_label_oas_lmm, 'dx_oas': dx_oas_lmm, 'pcd_oas': pcd_oas_lmm.astype(float), 
-                                                                                                'keys_oas': ['apoe', 'NPIQINF', 'DELSEV', 'HALLSEV', 'AGITSEV', 'DEPDSEV', 
-                                                                                                              'ANXSEV', 'ELATSEV', 'APASEV', 'DISNSEV', 'IRRSEV', 'MOTSEV', 'NITESEV',
-                                                                                                              'APPSEV', 'mmse', 'cdr', 'commun','homehobb', 'judgment', 'memory', 'orient', 'perscare', 'sumbox', 
-                                                                                                              'DIGIF', 'DIGIB', 'ANIMALS', 'VEG', 'TRAILA', 'TRAILALI', 'TRAILB',
-                                                                                                              'TRAILBLI', 'WAIS', 'LOGIMEM', 'MEMUNITS', 'MEMTIME', 'BOSTON',
-                                                                                                              'BILLS', 'TAXES', 'SHOPPING', 'GAMES', 'STOVE', 'MEALPREP', 'EVENTS',
-                                                                                                              'PAYATTN', 'REMDATES', 'TRAVEL', 'Centil_fBP_TOT_CORTMEAN_av45', 'Centil_fSUVR_TOT_CORTMEAN_av45', 
-                                                                                                              'Centil_fBP_rsf_TOT_CORTMEAN_av45', 'Centil_fSUVR_rsf_TOT_CORTMEAN_av45', 'Centil_fBP_TOT_CORTMEAN_pib', 'Centil_fSUVR_TOT_CORTMEAN_pib', 
-                                                                                                              'Centil_fBP_rsf_TOT_CORTMEAN_pib', 'Centil_fSUVR_rsf_TOT_CORTMEAN_pib'],
-                                                                                                'sub_adni': sub_adni_lmm, 'sess_adni': sess_adni_lmm, 'cluster_label_adni': cluster_label_adni_lmm, 
-                                                                                                'dx_adni': dx_adni_lmm, 'pcd_adni': pcd_adni_lmm.astype(float), 'keys_adni': ['PTEDUCAT',
-                                                                                                            'PTRACCAT', 'APOE4', 'FDG', 'PIB', 'AV45', 'FBB', 'CDRSB', 'RAVLT_immediate', 
-                                                                                                            'RAVLT_learning', 'RAVLT_forgetting', 'RAVLT_perc_forgetting', 'LDELTOTAL', 'DIGITSCOR', 
-                                                                                                            'TRABSCOR', 'FAQ', 'MOCA', 'CDMEMORY', 'CDORIENT', 'CDJUDGE', 'CDCOMMUN', 'CDHOME', 
-                                                                                                            'CDCARE', 'CDGLOBAL', 'FAQFINAN', 'FAQFORM', 'FAQSHOP', 'FAQGAME', 'FAQBEVG', 'FAQMEAL',
-                                                                                                            'FAQEVENT', 'FAQTV', 'FAQREM', 'FAQTRAVL', 'ABETA42', 'TAU', 'PTAU', 'visuospatial_executive', 
-                                                                                                            'naming', 'abstraction', 'delayed_recall', 'orientation', 'attention', 'language', 'NPIASEV', 'NPIBSEV', 
-                                                                                                            'NPICSEV', 'NPIDSEV', 'NPIESEV', 'NPIFSEV', 'NPIGSEV', 'NPIHSEV', 'NPIISEV', 'NPIJSEV', 
-                                                                                                            'NPIKSEV', 'NPILSEV','NPISCORE', 'LIMMTOTAL', 'DSPANFOR', 'DSPANFLTH', 'DSPANBAC', 
-                                                                                                            'DSPANBLTH', 'CATANIMSC', 'CATANPERS', 'CATVEGESC', 'CATVGPERS', 'TRAASCOR', 
-                                                                                                            'TRABSCOR', 'DIGITSCOR','LDELTOTAL', 'BNTTOTAL'], 
-                                                                                                'sub_habs': sub_habs_lmm, 'sess_habs': sess_habs_lmm, 'cluster_label_habs': cluster_label_habs_lmm, 
-                                                                                                'dx_habs': dx_habs_lmm, 'pcd_habs': pcd_habs_lmm.astype(float), 'keys_habs': ['YrsOfEd', 'APOE_haplotype', 
-                                                                                                            'BNT_30', 'CAT_Animal_Total', 'CAT_Vegetable_Total', 'Digits_Forward', 'Digits_Backwards', 'FAS_Total',
-                                                                                                            'FCsrt_FNC', 'FCsrt_Free', 'LetterNum_Total', 'LogicMem_IL', 'LogicMem_DR', 'SRT_dr', 'SRT_cltr', 
-                                                                                                            'SRT_cr', 'SRT_ltr','SRT_lts', 'SRT_mc', 'SRT_str', 'SRT_tr', 'TMT_A', 'TMT_B', 'VFDT', 'CDR_Global',
-                                                                                                            'CDR_SB', 'CDR_Memory', 'MMSE_Total', 'MMSE_Orientation', 'MMSE_ImmRecall', 'MMSE_AttnCalc', 
-                                                                                                            'MMSE_DelRecall', 'MMSE_Language', 'MMSE_Pentagons', 'GDS_Total', 'Hachinski', 'Race',
-                                                                                                            'fdg_mean', 'ftp_mean', 'PIB_FS_DVR_FLR']})
-
-########################combat some tp with limited samples and match with another dataset
-new_tp_one = [0, 12, 24, 36, 48, 60, 72, 96, 144, 192]
-sub_adni_lmm_new = []
-tp_adni_lmm_new = []
-pcd_adni_lmm_new = []
-label_adni_lmm_new = []
-dx_adni_lmm_new = []
-
-for i in range(len(other_sub_adni_unique)):
-    print(i)
-    for j in range(len(new_tp_one)):
-        label_adni_lmm_new.append(other_adni_pred_label_avg[i])
-        dx_adni_lmm_new.append(other_dx_adni[other_idx_adni_unique][i])
-        tp_adni_lmm_new.append(new_tp_one[j])
-        sub_adni_lmm_new.append(str(other_sub_adni_unique[i]))
-        pcd = pcd_adni_lmm[(sub_adni_lmm == str(other_sub_adni_unique[i]))]
-        sess_used = sess_adni_lmm[(sub_adni_lmm == str(other_sub_adni_unique[i]))]
-        if new_tp_one[j] == 0:
-            pcd_adni_lmm_new.append(pcd[sess_used==0].squeeze())
-        elif new_tp_one[j] == 12:
-            pcd_used = pcd[(sess_used==3)|(sess_used==6)|(sess_used==12)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_adni_lmm_new.append(pcd_used_raw)
-        elif new_tp_one[j] == 24:
-            pcd_used = pcd[(sess_used==18)|(sess_used==24)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_adni_lmm_new.append(pcd_used_raw)
-        elif new_tp_one[j] == 36:
-            pcd_used = pcd[(sess_used==30)|(sess_used==36)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_adni_lmm_new.append(pcd_used_raw)     
-        elif new_tp_one[j] == 48:
-            pcd_used = pcd[(sess_used==42)|(sess_used==48)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_adni_lmm_new.append(pcd_used_raw)    
-        elif new_tp_one[j] == 60:
-            pcd_used = pcd[(sess_used==54)|(sess_used==60)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_adni_lmm_new.append(pcd_used_raw)        
-        elif new_tp_one[j] == 72:
-            pcd_used = pcd[(sess_used==66)|(sess_used==72)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_adni_lmm_new.append(pcd_used_raw)     
-        elif new_tp_one[j] == 96:
-            pcd_used = pcd[(sess_used==78)|(sess_used==84)|(sess_used==90)|(sess_used==96)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_adni_lmm_new.append(pcd_used_raw)     
-        elif new_tp_one[j] == 144:
-            pcd_used = pcd[(sess_used==102)|(sess_used==108)|(sess_used==114)|(sess_used==120)|(sess_used==126)|(sess_used==132)|(sess_used==138)|(sess_used==144)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_adni_lmm_new.append(pcd_used_raw)     
-        elif new_tp_one[j] == 192:
-            pcd_used = pcd[(sess_used>144)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_adni_lmm_new.append(pcd_used_raw)            
-            
-sub_adni_lmm_new = np.array(sub_adni_lmm_new)    
-tp_adni_lmm_new = np.array(tp_adni_lmm_new)    
-pcd_adni_lmm_new = np.array(pcd_adni_lmm_new)    
-label_adni_lmm_new = np.array(label_adni_lmm_new)    
-dx_adni_lmm_new = np.array(dx_adni_lmm_new)    
+            oasis_demo_interest_classification.append([np.nan, np.nan])
+oasis_demo_interest_classification = np.array(oasis_demo_interest_classification)
  
-sub_oas_lmm_new = []
-tp_oas_lmm_new = []
-pcd_oas_lmm_new = []
-label_oas_lmm_new = []
-dx_oas_lmm_new = []
+habs_demo_interest_classification = []
+habs_demo_sub = pcd_all_habs["SubjIDshort"].str.split('_', expand = True).iloc[:,-1]
+for sub in sub_ind_uni:
+    if sum(habs_demo_sub == sub) >= 1:
+        habs_demo_interest_classification.append(pcd_all_habs[['Race', 'YrsOfEd']][habs_demo_sub == sub].values[0,:])
+    else:
+        habs_demo_interest_classification.append([np.nan, np.nan])
+habs_demo_interest_classification = np.array(habs_demo_interest_classification)
+ 
+oasis_demo_interest_classification[np.isnan(oasis_demo_interest_classification).sum(1)!=0] = habs_demo_interest_classification[np.isnan(oasis_demo_interest_classification).sum(1)!=0]
 
-for i in range(len(oasis_sub)):
-    print(i)
-    for j in range(len(new_tp_one)):
-        label_oas_lmm_new.append(other_oas_pred_label_avg[i])
-        dx_oas_lmm_new.append(other_dx_oas_encode[unique_id][i])
-        tp_oas_lmm_new.append(new_tp_one[j])
-        sub_oas_lmm_new.append(str(oasis_sub[i]))
-        pcd = pcd_oas_lmm[(sub_oas_lmm == str(oasis_sub[i]))]
-        sess_used = sess_oas_lmm[(sub_oas_lmm == str(oasis_sub[i]))]
-        if new_tp_one[j] == 0:
-            pcd_oas_lmm_new.append(pcd[sess_used==0].squeeze())
-        elif new_tp_one[j] == 12:
-            pcd_oas_lmm_new.append(pcd[sess_used==12].squeeze())
-        elif new_tp_one[j] == 24:
-            pcd_used = pcd[(sess_used==18)|(sess_used==24)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_oas_lmm_new.append(pcd_used_raw)
-        elif new_tp_one[j] == 36:
-            pcd_used = pcd[(sess_used==30)|(sess_used==36)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_oas_lmm_new.append(pcd_used_raw)     
-        elif new_tp_one[j] == 48:
-            pcd_used = pcd[(sess_used==42)|(sess_used==48)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_oas_lmm_new.append(pcd_used_raw)     
-        elif new_tp_one[j] == 60:
-            pcd_used = pcd[(sess_used==54)|(sess_used==60)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_oas_lmm_new.append(pcd_used_raw)     
-        elif new_tp_one[j] == 72:
-            pcd_used = pcd[(sess_used==66)|(sess_used==72)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_oas_lmm_new.append(pcd_used_raw)               
-        elif new_tp_one[j] == 96:
-            pcd_used = pcd[(sess_used==78)|(sess_used==84)|(sess_used==90)|(sess_used==96)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_oas_lmm_new.append(pcd_used_raw)     
-        elif new_tp_one[j] == 144:
-            pcd_used = pcd[(sess_used==102)|(sess_used==108)|(sess_used==114)|(sess_used==120)|(sess_used==126)|(sess_used==132)|(sess_used==138)|(sess_used==144)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_oas_lmm_new.append(pcd_used_raw)     
-        elif new_tp_one[j] == 192:
-            pcd_used = pcd[(sess_used>144)]
-            pcd_used_raw = pcd_used.mean(0)
-            for k in range(len(pcd_used_raw)):
-                pcd_used_raw[k] = pcd_used[~np.isnan(pcd_used[:,k]),k].mean()
-            pcd_oas_lmm_new.append(pcd_used_raw)            
-            
-sub_oas_lmm_new = np.array(sub_oas_lmm_new)    
-tp_oas_lmm_new = np.array(tp_oas_lmm_new)    
-pcd_oas_lmm_new = np.array(pcd_oas_lmm_new)    
-label_oas_lmm_new = np.array(label_oas_lmm_new)    
-dx_oas_lmm_new = np.array(dx_oas_lmm_new)    
 
-sio.savemat(r'F:\PHD\learning\project\super_age\more_sub\SA_defined_ricado\cluster\longi_symptoms\cluster_result_unique_lmm_tpReasigned.mat', {'sub_oas': sub_oas_lmm_new, 'sess_oas': tp_oas_lmm_new,
-                                                                                                'cluster_label_oas': label_oas_lmm_new, 'dx_oas': dx_oas_lmm_new, 'pcd_oas': pcd_oas_lmm_new.astype(float), 
-                                                                                                'keys_oas': ['apoe', 'NPIQINF', 'DELSEV', 'HALLSEV', 'AGITSEV', 'DEPDSEV', 
-                                                                                                              'ANXSEV', 'ELATSEV', 'APASEV', 'DISNSEV', 'IRRSEV', 'MOTSEV', 'NITESEV',
-                                                                                                              'APPSEV', 'mmse', 'cdr', 'commun','homehobb', 'judgment', 'memory', 'orient', 'perscare', 'sumbox', 
-                                                                                                              'DIGIF', 'DIGIB', 'ANIMALS', 'VEG', 'TRAILA', 'TRAILALI', 'TRAILB',
-                                                                                                              'TRAILBLI', 'WAIS', 'LOGIMEM', 'MEMUNITS', 'MEMTIME', 'BOSTON',
-                                                                                                              'BILLS', 'TAXES', 'SHOPPING', 'GAMES', 'STOVE', 'MEALPREP', 'EVENTS',
-                                                                                                              'PAYATTN', 'REMDATES', 'TRAVEL', 'Centil_fBP_TOT_CORTMEAN_av45', 'Centil_fSUVR_TOT_CORTMEAN_av45', 
-                                                                                                              'Centil_fBP_rsf_TOT_CORTMEAN_av45', 'Centil_fSUVR_rsf_TOT_CORTMEAN_av45', 'Centil_fBP_TOT_CORTMEAN_pib', 'Centil_fSUVR_TOT_CORTMEAN_pib', 
-                                                                                                              'Centil_fBP_rsf_TOT_CORTMEAN_pib', 'Centil_fSUVR_rsf_TOT_CORTMEAN_pib'],
-                                                                                                'sub_adni': sub_adni_lmm_new, 'sess_adni': tp_adni_lmm_new, 'cluster_label_adni': label_adni_lmm_new, 
-                                                                                                'dx_adni': dx_adni_lmm_new, 'pcd_adni': pcd_adni_lmm_new.astype(float), 'keys_adni': ['PTEDUCAT',
-                                                                                                            'PTRACCAT', 'APOE4', 'FDG', 'PIB', 'AV45', 'FBB', 'CDRSB', 'RAVLT_immediate', 
-                                                                                                            'RAVLT_learning', 'RAVLT_forgetting', 'RAVLT_perc_forgetting', 'LDELTOTAL', 'DIGITSCOR', 
-                                                                                                            'TRABSCOR', 'FAQ', 'MOCA', 'CDMEMORY', 'CDORIENT', 'CDJUDGE', 'CDCOMMUN', 'CDHOME', 
-                                                                                                            'CDCARE', 'CDGLOBAL', 'FAQFINAN', 'FAQFORM', 'FAQSHOP', 'FAQGAME', 'FAQBEVG', 'FAQMEAL',
-                                                                                                            'FAQEVENT', 'FAQTV', 'FAQREM', 'FAQTRAVL', 'ABETA42', 'TAU', 'PTAU', 'visuospatial_executive', 
-                                                                                                            'naming', 'abstraction', 'delayed_recall', 'orientation', 'attention', 'language', 'NPIASEV', 'NPIBSEV', 
-                                                                                                            'NPICSEV', 'NPIDSEV', 'NPIESEV', 'NPIFSEV', 'NPIGSEV', 'NPIHSEV', 'NPIISEV', 'NPIJSEV', 
-                                                                                                            'NPIKSEV', 'NPILSEV','NPISCORE', 'LIMMTOTAL', 'DSPANFOR', 'DSPANFLTH', 'DSPANBAC', 
-                                                                                                            'DSPANBLTH', 'CATANIMSC', 'CATANPERS', 'CATVEGESC', 'CATVGPERS', 'TRAASCOR', 
-                                                                                                            'TRABSCOR', 'DIGITSCOR','LDELTOTAL', 'BNTTOTAL'],
-                                                                                                'sub_habs': sub_habs_lmm, 'sess_habs': sess_habs_lmm, 'cluster_label_habs': cluster_label_habs_lmm, 
-                                                                                                'dx_habs': dx_habs_lmm, 'pcd_habs': pcd_habs_lmm.astype(float), 'keys_habs': ['YrsOfEd', 'APOE_haplotype', 
-                                                                                                            'BNT_30', 'CAT_Animal_Total', 'CAT_Vegetable_Total', 'Digits_Forward', 'Digits_Backwards', 'FAS_Total',
-                                                                                                            'FCsrt_FNC', 'FCsrt_Free', 'LetterNum_Total', 'LogicMem_IL', 'LogicMem_DR', 'SRT_dr', 'SRT_cltr', 
-                                                                                                            'SRT_cr', 'SRT_ltr','SRT_lts', 'SRT_mc', 'SRT_str', 'SRT_tr', 'TMT_A', 'TMT_B', 'VFDT', 'CDR_Global',
-                                                                                                            'CDR_SB', 'CDR_Memory', 'MMSE_Total', 'MMSE_Orientation', 'MMSE_ImmRecall', 'MMSE_AttnCalc', 
-                                                                                                            'MMSE_DelRecall', 'MMSE_Language', 'MMSE_Pentagons', 'GDS_Total', 'Hachinski', 'Race',
-                                                                                                            'fdg_mean', 'ftp_mean', 'PIB_FS_DVR_FLR']})
+dx_ind_uni = dx_ind[sub_idx]
+sex_ind_uni = sex_ind[sub_idx]
+age_ind_uni = age_ind[sub_idx]
+site_ind_uni = site_ind[sub_idx]
+chi2_contingency([[np.sum(sex_ind_uni[(dx_ind_uni==0)]==1),np.sum(sex_ind_uni[(dx_ind_uni==1)]==1)],
+                  [np.sum(sex_ind_uni[(dx_ind_uni==0)]==2),np.sum(sex_ind_uni[(dx_ind_uni==1)]==2)]])
+# chi2_contingency([[np.sum(sex_ind_uni[(sex_ind_uni==0)&(site_ind_uni==1)]==1),np.sum(sex_ind_uni[(sex_ind_uni==1)&(site_ind_uni==1)]==1)],
+#                   [np.sum(sex_ind_uni[(sex_ind_uni==0)&(site_ind_uni==1)]==2),np.sum(sex_ind_uni[(sex_ind_uni==1)&(site_ind_uni==1)]==2)]])
+Q1 = np.percentile(age_ind_uni[dx_ind_uni==1], 25)
+Q3 = np.percentile(age_ind_uni[dx_ind_uni==1], 75)
+print(Q1)
+print(Q3)
+ranksums(age_ind_uni[dx_ind_uni==0], age_ind_uni[dx_ind_uni==1])
 
+chi2_contingency([[np.sum(oasis_demo_interest_classification[(dx_ind_uni==0)]==1),np.sum(oasis_demo_interest_classification[(dx_ind_uni==1)]==1)],
+                  [np.sum(oasis_demo_interest_classification[(dx_ind_uni==0)]==2),np.sum(oasis_demo_interest_classification[(dx_ind_uni==1)]==2)]])
+# chi2_contingency([[np.sum(sex_ind_uni[(sex_ind_uni==0)&(site_ind_uni==1)]==1),np.sum(sex_ind_uni[(sex_ind_uni==1)&(site_ind_uni==1)]==1)],
+#                   [np.sum(sex_ind_uni[(sex_ind_uni==0)&(site_ind_uni==1)]==2),np.sum(sex_ind_uni[(sex_ind_uni==1)&(site_ind_uni==1)]==2)]])
+Q1 = np.percentile(oasis_demo_interest_classification[(dx_ind_uni==0)&np.isfinite(oasis_demo_interest_classification[:,1]),1], 25)
+Q3 = np.percentile(oasis_demo_interest_classification[(dx_ind_uni==0)&np.isfinite(oasis_demo_interest_classification[:,1]),1], 75)
+np.median(oasis_demo_interest_classification[(dx_ind_uni==0)&np.isfinite(oasis_demo_interest_classification[:,1]),1])
+print(Q1)
+print(Q3)
+ranksums(oasis_demo_interest_classification[(dx_ind_uni==0)&np.isfinite(oasis_demo_interest_classification[:,1]),1], oasis_demo_interest_classification[(dx_ind_uni==1)&np.isfinite(oasis_demo_interest_classification[:,1]),1])
+
+site_indx = []
+for i,sub in enumerate(sub_ind_uni):
+    if 'HAB' in sub:
+        site_indx.append(i)
+site_indx = np.array(site_indx) 

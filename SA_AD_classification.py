@@ -430,10 +430,12 @@ categorical_cols = ['DX']
 continuous_cols = ['Age']
 batch_col = 'Site'
 
+##############demo, you should determine whether the covariate should be taked into consideration, in our case
+##############kept age, DX information will be the best
 combat = neuroCombat(dat=harmonized_fc.T,
     covars=covars,
     batch_col=batch_col,
-    # continuous_cols=continuous_cols,
+    continuous_cols=continuous_cols,
     categorical_cols=categorical_cols)
 
 data_combat = combat["data"].T

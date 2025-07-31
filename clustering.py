@@ -416,7 +416,6 @@ other_age_adni = other_age_adni[uni_id]
 other_age_adni[other_age_adni == 0] = np.nan
 other_sex_adni = other_sex_adni[uni_id]
 other_sub_adni = other_sub_adni[uni_id]
-# other_sess_adni[other_sess_adni == 'bl                              '] = 'm000'
 other_sess_adni = other_sess_adni[uni_id]
 
 harmonized_fc = np.r_[half_fc_ind, half_fc_adni, half_fc_adni_other_uni, half_fc_oas_other_uni, other_fc_habs]
@@ -762,13 +761,6 @@ other_sub_adni_unique = np.array(other_sub_adni_unique)
 other_sess_adni_unique = np.array(other_sess_adni_unique)
 other_idx_adni_unique = np.array(other_idx_adni_unique)
     
-# mask_cn_tem = other_dx_adni[other_idx_adni_unique]
-# other_sub_adni_unique_cn = other_sub_adni_unique[mask_cn_tem==2]
-# other_sess_adni_unique_cn = other_sess_adni_unique[mask_cn_tem==2]
-# other_adni_pred_label_avg_unique_cn = other_adni_pred_label_avg[mask_cn_tem==2]
-# other_adni_pred_label_avg_all = other_adni_pred_label.mean(0)
-# other_sess_adni_unique_cn = other_sess_adni_unique[mask_cn_tem==2]
-
 PCD_adni_interest = {}
 adni_path = r'E:\PHD\learning\research\AD\data\ADNI'
 adni_demo = pd.read_csv(os.path.join(adni_path, 'ADNIMERGE_01May2024.csv'))
@@ -1098,10 +1090,6 @@ stat_all_adni_cn[np.r_[[70,71], np.arange(5,11)],1]
 
 out = multipletests(stat_all_adni_cn[np.r_[[70,71], np.arange(5,11)],1], method="fdr_bh")[1]
 np.array(stat_keys_adni)[np.r_[[70,71], np.arange(5,11)]]
-# df_adni['sub'] =  other_sub_adni_unique
-# df_adni['sess'] =  other_sess_adni_unique
-# df_adni.to_csv(r'F:\PHD\learning\project\super_age\more_sub\SA_defined_ricado\cluster\stats_compare\0\adni_init_pcd.csv', index=False)
-# np.array(stat_keys_oas)[np.r_[np.arange(26,31), np.arange(35,40)]][6]
 
 stat_adni_nonan_fdrp = multipletests(stat_all_adni_cn[np.isfinite(stat_all_adni_cn[:,1]),1], method="fdr_bh")[1]
 stat_keys_adni_nonan_fdrp = np.array(stat_keys_adni)[np.isfinite(stat_all_adni_cn[:,1])]
@@ -1462,9 +1450,7 @@ df_pcd_habs = pd.DataFrame(PCD_habs_interest).astype(float)
 ##############correlation analysis
 stat_all_habs_cn = []
 stat_keys_habs = []
-stat_test = []
-# other_habs_pred_label_avg = other_habs_pred_label.mean(0)[uni_idx][hpc_fc_idx]
-other_habs_pred_label_mask = other_habs_pred_label>0
+stat_test = []other_habs_pred_label_mask = other_habs_pred_label>0
 other_habs_pred_label_avg = other_habs_pred_label_mask.mean(0)[hpc_fc_idx]
 
 df_all = {'age': np.r_[df_oas['age'], df_pcd_habs['age']], 
@@ -1615,13 +1601,9 @@ for i, key in enumerate(PCD_all_keys):
 
 stat_discovery_cn = np.array(stat_discovery_cn)
 
-# out = multipletests(stat_discovery_cn[np.r_[[14,15], np.arange(38,47)],1], method="fdr_bh")[1]
 np.array(stat_keys_discovery)[np.r_[[14,15], np.arange(38,47)]]
-# out = multipletests(stat_discovery_cn[[0,1,3,4],1], method="fdr_bh")[1]
-# np.array(stat_keys_discovery)[[0,1,3,4]]
 out = multipletests(stat_discovery_cn[:,1], method="fdr_bh")[1]
 np.array(stat_keys_discovery)[47:]
-# np.array(stat_keys_oas)[np.r_[np.arange(26,31), np.arange(35,40)]][6]
 out = multipletests(stat_discovery_cn[np.isfinite(stat_discovery_cn[:,1]),1], method="fdr_bh")[1]
 np.array(stat_keys_discovery)[np.isfinite(stat_discovery_cn[:,1])][out<0.05]
 stat_keys_discovery_nonan = np.array(stat_keys_discovery)[np.isfinite(stat_discovery_cn[:,1])]
@@ -1629,8 +1611,7 @@ stat_keys_discovery_nonan = np.array(stat_keys_discovery)[np.isfinite(stat_disco
 out = multipletests(stat_discovery_cn[np.r_[np.arange(8), np.arange(22,51)],1][np.isfinite(stat_discovery_cn[np.r_[np.arange(8), np.arange(22,51)],1])], method="fdr_bh")[1]
 stat_discovery_cn_fdr = copy.deepcopy(stat_discovery_cn)
 stat_discovery_cn_fdr[np.r_[np.arange(8), np.arange(22,51)],1][np.isfinite(stat_discovery_cn[np.r_[np.arange(8), np.arange(22,51)],1])] = out
-# sio.savemat(r'F:\PHD\learning\project\super_age\more_sub\SA_defined_ricado\cluster\stats_compare\0.5\stats_compare_discovery.mat', {'stat_keys_discovery':stat_keys_discovery,
-#                                                                                                                                                                                     'stat_discovery_cn': stat_discovery_cn})
+                                                                                                                                                                                  'stat_discovery_cn': stat_discovery_cn})
 
 ###################################demograph in discovery
 sub_ind_ = pd.Series(sub_ind).str.split('_', expand = True).iloc[:,0]

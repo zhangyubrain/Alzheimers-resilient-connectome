@@ -508,7 +508,7 @@ indep_cn_dem_prob = []
 indep_cn_sa_prob = []
 
 # ---- Participant CV, fold harmonization, and external scoring ----
-adni_calibration = load_adni_calibration(all_sub_adni, half_fc_ind.shape[1])
+adni_calibration = load_adni_calibration(np.r_[all_sub_adni, sa_dem_sub_adni], half_fc_ind.shape[1])
 
 for train_index, test_index in kf.split(dx_ind_uniq, dx_ind_uniq):
     tr_all_id = []
@@ -566,8 +566,9 @@ for train_index, test_index in kf.split(dx_ind_uniq, dx_ind_uniq):
     X_train = X_train[:,t_p_vector[:,1]<=p_thre]
     
     # Preset common parameters; no tuning against external results.
+    # dx arrays are float; bincount and indexing need integer labels.
     sample_weights = (1.0 / np.bincount(inverse)[inverse]
-                      / np.bincount(subject_y, minlength=2)[y_train])
+                      / np.bincount(subject_y.astype(int), minlength=2)[y_train.astype(int)])
     sample_weights *= len(sample_weights) / sample_weights.sum()
     if X_train.shape[1] == 0:
         raise ValueError('No edges passed the training-only filter')

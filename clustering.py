@@ -515,7 +515,7 @@ indep_cn_dem_prob = []
 indep_cn_sa_prob = []
 
 # ---- Participant CV, fold harmonization, and external scoring ----
-adni_calibration = load_adni_calibration(all_sub_adni, half_fc_ind.shape[1])
+adni_calibration = load_adni_calibration(np.r_[all_sub_adni, sa_dem_sub_adni], half_fc_ind.shape[1])
 
 for train_index, test_index in kf.split(dx_ind_uniq, dx_ind_uniq):
     tr_all_id = []
@@ -573,8 +573,9 @@ for train_index, test_index in kf.split(dx_ind_uniq, dx_ind_uniq):
     X_train = X_train[:,t_p_vector[:,1]<=p_thre]
     
     # Preset common parameters; no tuning against external results.
+    # dx arrays are float; bincount and indexing need integer labels.
     sample_weights = (1.0 / np.bincount(inverse)[inverse]
-                      / np.bincount(subject_y, minlength=2)[y_train])
+                      / np.bincount(subject_y.astype(int), minlength=2)[y_train.astype(int)])
     sample_weights *= len(sample_weights) / sample_weights.sum()
     if X_train.shape[1] == 0:
         raise ValueError('No edges passed the training-only filter')
@@ -780,14 +781,14 @@ adni_demo_sub = adni_demo['PTID']
 adni_demo_sess = adni_demo['VISCODE']
 adni_demo_interest = []
 for sub, sess in zip(other_sub_adni_unique, other_sess_adni_unique):
-    if sum((adni_demo_sub == sub[:10])&(adni_demo_sess == sess.split(' ')[0])) > 0:
+    if sum((adni_demo_sub == sub.strip())&(adni_demo_sess == sess.split(' ')[0])) > 0:
         adni_demo_interest.append(adni_demo[['PTEDUCAT', 'PTRACCAT', 'APOE4', 'FDG', 'PIB', 'AV45', 'FBB', 
                                               'ABETA', 'TAU', 'PTAU', 'CDRSB', 'ADAS11', 'ADAS13', 'MMSE', 'RAVLT_immediate', 
                                               'RAVLT_learning', 'RAVLT_forgetting', 'RAVLT_perc_forgetting', 'LDELTOTAL', 'DIGITSCOR', 
                                               'TRABSCOR', 'FAQ', 'MOCA', 'EcogPtMem', 'EcogPtLang', 'EcogPtVisspat', 'EcogPtPlan', 
                                               'EcogPtOrgan', 'EcogPtDivatt', 'EcogPtTotal', 'EcogSPMem', 'EcogSPLang', 'EcogSPVisspat', 
                                               'EcogSPPlan', 'EcogSPOrgan', 'EcogSPDivatt', 'EcogSPTotal']][
-            (adni_demo_sub == sub[:10])&(adni_demo_sess == sess.split(' ')[0])].values[0,:])
+            (adni_demo_sub == sub.strip())&(adni_demo_sess == sess.split(' ')[0])].values[0,:])
     else:
         adni_demo_interest.append([np.nan for i in range(len(['PTEDUCAT', 'PTRACCAT', 'APOE4', 'FDG', 'PIB', 'AV45', 'FBB', 
                                               'ABETA', 'TAU', 'PTAU', 'CDRSB', 'ADAS11', 'ADAS13', 'MMSE', 'RAVLT_immediate', 
@@ -823,9 +824,9 @@ adni_cdr_sess[adni_cdr_sess == 'sc'] = 'bl'
 adni_cdr_sess[adni_cdr_sess == 'f'] = 'bl'
 adni_cdr_interest = []
 for sub, sess in zip(other_sub_adni_unique, other_sess_adni_unique):
-    if sum((adni_cdr_sub == sub[:10])&(adni_cdr_sess == sess.split(' ')[0])) > 0:
+    if sum((adni_cdr_sub == sub.strip())&(adni_cdr_sess == sess.split(' ')[0])) > 0:
         adni_cdr_interest.append(adni_cdr[['CDMEMORY', 'CDORIENT', 'CDJUDGE', 'CDCOMMUN', 'CDHOME', 'CDCARE', 'CDGLOBAL']][
-            (adni_cdr_sub == sub[:10])&(adni_cdr_sess == sess.split(' ')[0])].values[0,:])
+            (adni_cdr_sub == sub.strip())&(adni_cdr_sess == sess.split(' ')[0])].values[0,:])
     else:
         adni_cdr_interest.append([np.nan for i in range(len(['CDMEMORY', 'CDORIENT', 'CDJUDGE', 'CDCOMMUN', 'CDHOME', 'CDCARE', 'CDGLOBAL']))])
 adni_cdr_interest = np.array(adni_cdr_interest)
@@ -838,10 +839,10 @@ adni_faq_sub = adni_faq['PTID']
 adni_faq_sess = adni_faq['VISCODE2']
 adni_faq_interest = []
 for sub, sess in zip(other_sub_adni_unique, other_sess_adni_unique):
-    if sum((adni_faq_sub == sub[:10])&(adni_faq_sess == sess.split(' ')[0])) > 0:
+    if sum((adni_faq_sub == sub.strip())&(adni_faq_sess == sess.split(' ')[0])) > 0:
         adni_faq_interest.append(adni_faq[['FAQFINAN', 'FAQFORM', 'FAQSHOP', 'FAQGAME', 'FAQBEVG', 'FAQMEAL',
                                             'FAQEVENT', 'FAQTV', 'FAQREM', 'FAQTRAVL']][
-            (adni_faq_sub == sub[:10])&(adni_faq_sess == sess.split(' ')[0])].values[0,:])
+            (adni_faq_sub == sub.strip())&(adni_faq_sess == sess.split(' ')[0])].values[0,:])
     else:
         adni_faq_interest.append([np.nan for i in range(len(['FAQFINAN', 'FAQFORM', 'FAQSHOP', 'FAQGAME', 'FAQBEVG', 'FAQMEAL',
                                             'FAQEVENT', 'FAQTV', 'FAQREM', 'FAQTRAVL']))])
@@ -860,12 +861,19 @@ adni_neuroBIO_sub = adni_neuroBIO['RID']
 adni_neuroBIO_sess = adni_neuroBIO['VISCODE2']
 adni_neuroBIO_interest = []
 for sub, sess in zip(other_sub_adni_unique, other_sess_adni_unique):
-    if sum((adni_neuroBIO_sub == int(sub[6:10]))&(adni_neuroBIO_sess == sess.split(' ')[0])) > 0:
+    if sum((adni_neuroBIO_sub == int(sub.strip().split("_")[-1]))&(adni_neuroBIO_sess == sess.split(' ')[0])) > 0:
         adni_neuroBIO_interest.append(adni_neuroBIO[['ABETA42', 'TAU', 'PTAU']][
-            (adni_neuroBIO_sub == int(sub[6:10]))&(adni_neuroBIO_sess == sess.split(' ')[0])].values[0,:])
+            (adni_neuroBIO_sub == int(sub.strip().split("_")[-1]))&(adni_neuroBIO_sess == sess.split(' ')[0])].values[0,:])
     else:
         adni_neuroBIO_interest.append([np.nan for i in range(len(['ABETA42', 'TAU', 'PTAU']))])
-adni_neuroBIO_interest = np.array(adni_neuroBIO_interest)
+adni_neuroBIO_interest = np.array(adni_neuroBIO_interest, dtype=object)
+# These columns replace the ADNIMERGE ones cleaned above, so apply the same censoring convention here.
+adni_neuroBIO_interest[adni_neuroBIO_interest[:,0]=='>1700',0] = 2000
+adni_neuroBIO_interest[adni_neuroBIO_interest[:,2]=='<8',2] = 8
+try:
+    adni_neuroBIO_interest = adni_neuroBIO_interest.astype(float)
+except ValueError as exc:
+    raise ValueError('Unhandled censored CSF value in the Elecsys file; add it to the convention above') from exc
 PCD_adni_interest.update({'ABETA': adni_neuroBIO_interest[:,0], 'TAU': adni_neuroBIO_interest[:,1], 'PTAU': adni_neuroBIO_interest[:,2]}) 
 
 adni_gds = pd.read_csv(os.path.join(adni_path, 'GDSCALE_08May2024.csv'))
@@ -873,9 +881,9 @@ adni_gds_sub = adni_gds['PTID']
 adni_gds_sess = adni_gds['VISCODE2']
 adni_gds_interest = []
 for sub, sess in zip(other_sub_adni_unique, other_sess_adni_unique):
-    if sum((adni_gds_sub == sub[:10])&(adni_gds_sess == sess.split(' ')[0])) > 0:
+    if sum((adni_gds_sub == sub.strip())&(adni_gds_sess == sess.split(' ')[0])) > 0:
         adni_gds_interest.append(adni_gds['GDTOTAL'][
-            (adni_gds_sub == sub[:10])&(adni_gds_sess == sess.split(' ')[0])].values[0])
+            (adni_gds_sub == sub.strip())&(adni_gds_sess == sess.split(' ')[0])].values[0])
     else:
         adni_gds_interest.append(np.nan)
 adni_gds_interest = np.array(adni_gds_interest)
@@ -886,10 +894,10 @@ adni_his_sub = adni_his['PTID']
 adni_his_sess = adni_his['VISCODE2']
 adni_his_interest = []
 for sub, sess in zip(other_sub_adni_unique, other_sess_adni_unique):
-    if sum((adni_his_sub == sub[:10])) > 0:
+    if sum((adni_his_sub == sub.strip())) > 0:
         adni_his_interest.append(adni_his[['HMSTEPWS', 'HMSOMATC', 'HMEMOTIO', 'HMHYPERT', 'HMSTROKE', 'HMNEURSM',
                                             'HMNEURSG', 'HMSCORE', 'HMONSET']][
-            (adni_his_sub == sub[:10])].values[0,:])
+            (adni_his_sub == sub.strip())].values[0,:])
     else:
         adni_his_interest.append([np.nan for i in range(len(['HMSTEPWS', 'HMSOMATC', 'HMEMOTIO', 'HMHYPERT', 'HMSTROKE', 'HMNEURSM',
                                             'HMNEURSG', 'HMSCORE', 'HMONSET']))])
@@ -903,13 +911,13 @@ adni_moca_sub = adni_moca['PTID']
 adni_moca_sess = adni_moca['VISCODE2']
 adni_moca_interest = []
 for sub, sess in zip(other_sub_adni_unique, other_sess_adni_unique):
-    if sum((adni_moca_sub == sub[:10])&(adni_moca_sess == sess.split(' ')[0])) > 0:
+    if sum((adni_moca_sub == sub.strip())&(adni_moca_sess == sess.split(' ')[0])) > 0:
         adni_moca_interest.append(adni_moca[['TRAILS', 'CUBE', 'CLOCKCON', 'CLOCKNO', 'CLOCKHAN', 'LION', 'RHINO', 'CAMEL',
                                               'IMMT1W1', 'IMMT1W2', 'IMMT1W3', 'IMMT1W4', 'IMMT1W5', 'IMMT2W1', 'IMMT2W2', 'IMMT2W3', 
                                               'IMMT2W4', 'IMMT2W5', 'DIGFOR', 'DIGBACK', 'LETTERS', 'SERIAL1', 'SERIAL2', 'SERIAL3', 'SERIAL4', 
                                               'SERIAL5', 'REPEAT1', 'REPEAT2', 'FFLUENCY', 'ABSTRAN', 'ABSMEAS', 'DELW1', 'DELW2', 'DELW3', 
                                               'DELW4', 'DELW5', 'DATE', 'MONTH', 'YEAR', 'DAY', 'PLACE', 'CITY']][
-            (adni_moca_sub == sub[:10])&(adni_moca_sess == sess.split(' ')[0])].values[0,:])
+            (adni_moca_sub == sub.strip())&(adni_moca_sess == sess.split(' ')[0])].values[0,:])
     else:
         adni_moca_interest.append([np.nan for i in range(len(['TRAILS', 'CUBE', 'CLOCKCON', 'CLOCKNO', 'CLOCKHAN', 'LION', 'RHINO', 'CAMEL',
                                               'IMMT1W1', 'IMMT1W2', 'IMMT1W3', 'IMMT1W4', 'IMMT1W5', 'IMMT2W1', 'IMMT2W2', 'IMMT2W3', 
@@ -934,10 +942,10 @@ adni_nps_sub = adni_nps['PTID']
 adni_nps_sess = adni_nps['VISCODE2']
 adni_nps_interest = []
 for sub, sess in zip(other_sub_adni_unique, other_sess_adni_unique):
-    if sum((adni_nps_sub == sub[:10])&(adni_nps_sess == sess.split(' ')[0])) > 0:
+    if sum((adni_nps_sub == sub.strip())&(adni_nps_sess == sess.split(' ')[0])) > 0:
         adni_nps_interest.append(adni_nps[['NPIASEV', 'NPIBSEV', 'NPICSEV', 'NPIDSEV', 'NPIESEV', 'NPIFSEV', 'NPIGSEV', 
                                             'NPIHSEV', 'NPIISEV', 'NPIJSEV', 'NPIKSEV', 'NPILSEV','NPISCORE']][
-            (adni_nps_sub == sub[:10])&(adni_nps_sess == sess.split(' ')[0])].values[0,:])
+            (adni_nps_sub == sub.strip())&(adni_nps_sess == sess.split(' ')[0])].values[0,:])
     else:
         adni_nps_interest.append([np.nan for i in range(len(['NPIASEV', 'NPIBSEV', 'NPICSEV', 'NPIDSEV', 'NPIESEV', 'NPIFSEV', 'NPIGSEV', 
                                             'NPIHSEV', 'NPIISEV', 'NPIJSEV', 'NPIKSEV', 'NPILSEV','NPISCORE']))])
@@ -955,10 +963,10 @@ adni_neu_sub = adni_neu['PTID']
 adni_neu_sess = adni_neu['VISCODE2']
 adni_neu_interest = []
 for sub, sess in zip(other_sub_adni_unique, other_sess_adni_unique):
-    if sum((adni_neu_sub == sub[:10])&(adni_neu_sess == sess.split(' ')[0])) > 0:
+    if sum((adni_neu_sub == sub.strip())&(adni_neu_sess == sess.split(' ')[0])) > 0:
         adni_neu_interest.append(adni_neu[['LIMMTOTAL', 'DSPANFOR', 'DSPANFLTH', 'DSPANBAC', 'DSPANBLTH', 'CATANIMSC', 'CATANPERS', 
                                             'CATVEGESC', 'CATVGPERS', 'TRAASCOR', 'TRABSCOR', 'DIGITSCOR','LDELTOTAL', 'BNTTOTAL']][
-            (adni_neu_sub == sub[:10])&(adni_neu_sess == sess.split(' ')[0])].values[0,:])
+            (adni_neu_sub == sub.strip())&(adni_neu_sess == sess.split(' ')[0])].values[0,:])
     else:
         adni_neu_interest.append([np.nan for i in range(len(['LIMMTOTAL', 'DSPANFOR', 'DSPANFLTH', 'DSPANBAC', 'DSPANBLTH', 'CATANIMSC',
                                                               'CATANPERS', 'CATVEGESC', 'CATVGPERS', 'TRAASCOR', 'TRABSCOR', 'DIGITSCOR','LDELTOTAL',
@@ -982,10 +990,10 @@ PCD_keys = ['AGE', 'GENDER', 'PTEDUCAT', 'PTRACCAT', 'APOE4', 'FDG', 'AV45', 'FB
             'NPISCORE', 'LIMMTOTAL', 'DSPANFOR', 'DSPANBAC', 'CATANIMSC', 'CATANPERS', 'CATVEGESC', 'TRAASCOR', 'DIGITSCOR', 'BNTTOTAL']
 
 df_adni = pd.DataFrame(PCD_adni_interest).astype(float)
-df_adni['A+'] = (df_adni['ABETA'] <= float(os.environ['ARC_CSF_ABETA_CUTOFF'])) * 1
-df_adni['A+'][df_adni['ABETA'].isnull()] = np.nan
-df_adni['T+'] = (df_adni['PTAU'] > float(os.environ['ARC_CSF_PTAU_CUTOFF'])) * 1
-df_adni['T+'][df_adni['PTAU'].isnull()] = np.nan
+df_adni['A+'] = (df_adni['ABETA'] <= float(os.environ['ARC_CSF_ABETA_CUTOFF'])) * 1.0
+df_adni.loc[df_adni['ABETA'].isnull(), 'A+'] = np.nan
+df_adni['T+'] = (df_adni['PTAU'] > float(os.environ['ARC_CSF_PTAU_CUTOFF'])) * 1.0
+df_adni.loc[df_adni['PTAU'].isnull(), 'T+'] = np.nan
 PCD_keys.append('A+')
 PCD_keys.append('T+')
 stat_all_adni_cn = []
@@ -1392,17 +1400,18 @@ FTP_info = pd.read_csv(FTP_path)
 FTP_info['ftp_mean'] = FTP_info.iloc[:,4:].mean(1)
 PIB_path = os.path.join(habs_aging_behavior_path, 'PIB_FS6_DVR_HABS_DataRelease_2.0.csv')
 PIB_info = pd.read_csv(PIB_path)
-PIB_info['StudyArc'][PIB_info['StudyArc'] == 'HAB_18m_PET'] = 'HAB_3.0' 
-FDG_info['StudyArc'][FDG_info['StudyArc'] == 'HAB_18m_PET'] = 'HAB_3.0' 
-FDG_info['StudyArc'][FDG_info['StudyArc'] == 'HAB_AI'] = 'HAB_6.0' 
+PIB_info.loc[PIB_info['StudyArc'] == 'HAB_18m_PET', 'StudyArc'] = 'HAB_3.0'
+FDG_info.loc[FDG_info['StudyArc'] == 'HAB_18m_PET', 'StudyArc'] = 'HAB_3.0'
+FDG_info.loc[FDG_info['StudyArc'] == 'HAB_AI', 'StudyArc'] = 'HAB_6.0'
 pcd_all_habs = pd.merge(cog_info, demo_info, on=['SubjIDshort', 'StudyArc', 'NP_SessionDate'], how='outer')
 pcd_all_habs = pd.merge(pcd_all_habs, clinic_info, on=['SubjIDshort', 'StudyArc', 'NP_SessionDate'], how='outer')
 pcd_all_habs = pd.merge(pcd_all_habs, FDG_info, on=['SubjIDshort', 'StudyArc'], how='outer')
 pcd_all_habs = pd.merge(pcd_all_habs, FTP_info, on=['SubjIDshort', 'StudyArc'], how='outer')
 pcd_all_habs = pd.merge(pcd_all_habs, PIB_info, on=['SubjIDshort', 'StudyArc'], how='outer')
 pcd_all_habs['sub_sess'] = pcd_all_habs['SubjIDshort'].str.split('_', expand = True).iloc[:,-1] + '_' +pcd_all_habs['StudyArc']
-pcd_all_habs['Race'][pcd_all_habs['Race'] == 'W'] = 0
-pcd_all_habs['Race'][pcd_all_habs['Race'] != 'W'] = 1
+# Build both masks before recoding; match OASIS INRACE (1 = White), non-White = 2, missing stays NaN.
+race_raw = pcd_all_habs['Race'].copy()
+pcd_all_habs['Race'] = np.where(race_raw.isnull(), np.nan, np.where(race_raw == 'W', 1.0, 2.0))
 
 _, hpc_fc_idx, pcd_idx = np.intersect1d(habs_sub_uni,  pd.Series(pcd_all_habs['sub_sess']).str.split('_', expand = True).iloc[:,0], return_indices=True)
 PCD_habs_interest = {}
@@ -1471,12 +1480,15 @@ df_all = {'age': np.r_[df_oas['age'], df_pcd_habs['age']],
           'sub': np.r_[oasis_sa_sub_sess_uniq_, habs_sub_uni[hpc_fc_idx]], 
           'sex': np.r_[df_oas['sex'], df_pcd_habs['sex']],
           'cluster_label': np.r_[other_oas_pred_label_avg, other_habs_pred_label_avg],
-          'race': np.r_[df_oas['INRACE'], df_pcd_habs['Race']], 
+          # White = 1, non-White = 2 in both cohorts.
+          'race': np.r_[np.where(df_oas['INRACE'].isnull(), np.nan, np.where(df_oas['INRACE'] == 1, 1.0, 2.0)),
+                        df_pcd_habs['Race']],
           'educ': np.r_[df_oas['INEDUC'], df_pcd_habs['YrsOfEd']], 
           'dx': np.r_[df_oas['dx'], other_dx_habs[uni_idx[hpc_fc_idx]]],  
           'tmt_a': np.r_[df_oas['TRAILA'], df_pcd_habs['TMT_A']], 
           'tmt_b': np.r_[df_oas['TRAILB'], df_pcd_habs['TMT_B']], 
-          'apoe': np.r_[df_oas['apoe'].astype(str).str.count('4'), df_pcd_habs['APOE_haplotype']], 
+          # OASIS apoe is already an e4 count (see PCD_data[:,1] above).
+          'apoe': np.r_[df_oas['apoe'], df_pcd_habs['APOE_haplotype']],
            'DELSEV': np.r_[df_oas['DELSEV'], [np.nan for i in range(len(df_pcd_habs['sex']))]], 
            'HALLSEV': np.r_[df_oas['HALLSEV'], [np.nan for i in range(len(df_pcd_habs['sex']))]], 
            'AGITSEV': np.r_[df_oas['AGITSEV'], [np.nan for i in range(len(df_pcd_habs['sex']))]], 
@@ -1555,12 +1567,12 @@ for i, key in enumerate(PCD_all_keys):
             count = np.sum(fea_demlike_cn==1)
             ax.bar(1, count, color = blue, width = 1, fill=False, edgecolor= blue, linewidth=5, hatch = '+')
             if key == 'race':
-                count = np.sum(fea_salike_cn==0)
+                count = np.sum(fea_salike_cn==2)
             else:
                 count = np.sum(fea_salike_cn==2)
             ax.bar(2, count, color = red, width = 1, fill=False, edgecolor= red, linewidth=5, hatch = 'x')
             if key == 'race':
-                count = np.sum(fea_demlike_cn==0)
+                count = np.sum(fea_demlike_cn==2)
             else:
                 count = np.sum(fea_demlike_cn==2)
             ax.bar(3, count, color = blue, width = 1, fill=False, edgecolor= blue, linewidth=5, hatch = 'x')
